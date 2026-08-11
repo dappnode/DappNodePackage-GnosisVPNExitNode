@@ -1,0 +1,13 @@
+# DAppNodeSDK release directories
+/build_*/
+/build/
+
+# Nix OS
+/.direnv
+
+# Node.js
+/node_modules/
+
+# Local test overrides (see test/README.md)
+/.env.local
+/hopr.id

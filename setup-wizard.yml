@@ -1,0 +1,127 @@
+version: "2"
+fields:
+  - id: HOPRD_PASSWORD
+    target:
+      type: environment
+      name: HOPRD_PASSWORD
+      service: node
+    title: Identity file password
+    required: true
+    pattern: "[^\\s]{10,}"
+    patternErrorMessage: Must be at least 10 characters long!
+    description: >-
+      Password used to protect the new or existing identity file.
+    secret: true
+
+  - id: HOPRD_API_TOKEN
+    target:
+      type: environment
+      name: HOPRD_API_TOKEN
+      service: node
+    title: REST API token
+    required: false
+    description: |-
+      Secret token to the REST API exposed by the node.
+
+      Set this value **only if** you don't want to use the DMS metrics for the HOPR node
+      *or* if you plan to expose your REST API (port 3001) to the public.
+    secret: true
+
+  - id: HOPRD_BLOKLI_URL
+    target:
+      type: environment
+      name: HOPRD_BLOKLI_URL
+      service: node
+    title: Blokli provider URL (advanced)
+    required: false
+    description: |-
+      URL of the Blokli provider used by the node to connect to the blockchain.
+
+      Leave empty to use the value already shipped in `hoprd.cfg.yaml` (the same one used by
+      HOPR Association's own GnosisVPN exit-node fleet). Only set this if you need to point
+      the node at a different Blokli endpoint.
+    secret: false
+
+  - id: CONFIG
+    target:
+      type: fileUpload
+      path: /app/hoprd/conf/hoprd.custom.cfg.yaml
+    title: Custom HOPR node configuration file
+    required: false
+    description: |-
+      Upload a custom configuration file for the HOPR node, replacing the shipped
+      `hoprd.cfg.yaml` (jura-prod GnosisVPN exit-node fleet defaults) entirely - including its
+      `session_ip_forwarding` entries, which you'd then need to point at gnosisvpn-server
+      yourself. Uploading here takes priority over the auto-generated config on every start.
+    secret: false
+
+  - id: HOPRD_SAFE_ADDRESS
+    target:
+      type: environment
+      name: HOPRD_SAFE_ADDRESS
+      service: node
+    title: Staking safe address
+    required: true
+    description: |-
+      Ethereum address of the associated staking safe.
+
+      Check [Staking Hub](https://hub.hoprnet.org/staking/dashboard) for the right address.
+
+      *Example:* `0x010203040506070809aabbccddeeff00112233`
+    secret: false
+    pattern: ^0x[a-fA-F0-9]{40}$
+    patternErrorMessage: Must be a valid Ethereum address!
+
+  - id: HOPRD_MODULE_ADDRESS
+    target:
+      type: environment
+      name: HOPRD_MODULE_ADDRESS
+      service: node
+    title: Staking safe module address
+    required: true
+    description: |-
+      Ethereum address of the module connected to the associated staking safe.
+
+      Check [Staking Hub](https://hub.hoprnet.org/staking/dashboard) for the right address.
+
+      *Example:* `0x010203040506070809aabbccddeeff00112233`
+    secret: false
+    pattern: ^0x[a-fA-F0-9]{40}$
+    patternErrorMessage: Must be a valid Ethereum address!
+
+  - id: HOPRD_HOST
+    target:
+      type: environment
+      name: HOPRD_HOST
+      service: node
+    title: Public host IP and port
+    required: true
+    description: |-
+      Must contain the `host:port` binding where the node should listen.
+      on your router and exposed to the Internet.
+      You can also use the (dyn)DNS name of your node as `host`.
+      The `host` part must be an external public IP address or DNS name of this node.
+      The `port` must be 9091 - it's the only p2p port this package publishes.
+
+      *Make sure port 9091 is port-forwarded on your router and exposed to the Internet.*
+
+      *Example (public IP address):* `1.2.3.4:9091`
+
+      *Example (dynDNS entry):* `abcd1234.dyndns.dappnode.io:9091`
+    secret: false
+    pattern: ^[a-z0-9.-]{3,}:9091$
+    patternErrorMessage: Must be in correct host:port format, with port 9091!
+
+  - id: WIREGUARD_CIDR
+    target:
+      type: environment
+      name: WIREGUARD_CIDR
+      service: gnosisvpn-server
+    title: WireGuard client subnet (advanced)
+    required: false
+    description: |-
+      Private IPv4 subnet used to assign addresses to WireGuard clients connecting through
+      this exit node. Leave empty to use the default (`10.128.0.0/24`, up to 253 clients).
+    secret: false
+    pattern: ^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$
+    patternErrorMessage: Must be a valid CIDR, e.g. 10.128.0.0/24

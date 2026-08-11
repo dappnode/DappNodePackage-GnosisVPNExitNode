@@ -1,0 +1,73 @@
+version: "3.6"
+services:
+  node:
+    # Do not set image field here, it will be set automatically by the sdk.
+    build:
+      context: .
+      args:
+        # see https://console.cloud.google.com/artifacts/docker/hoprassociation/europe-west3/docker-images/hoprd
+        UPSTREAM_VERSION: >-
+          4.0.3@sha256:4b3ff3d3f73ed323e5375471d81dc13fb1a32eccd1a7ba573ebb231542452e35
+    depends_on:
+      - gnosisvpn-server
+    ports:
+      - "1422:1422/udp"
+      - "1422:1422/tcp"
+      - "3001:3001/tcp"
+      - "9091:9091/tcp"
+      - "9091:9091/udp"
+    volumes:
+      - "data:/app/hoprd/data"
+      - "conf:/app/hoprd/conf"
+    security_opt:
+      - "seccomp:unconfined"
+    environment:
+      RUST_LOG: info
+      HOPRD_CONFIGURATION_FILE_PATH: /app/hoprd/conf/hoprd.cfg.yaml
+      HOPRD_IDENTITY: /app/hoprd/conf/hopr.id
+      HOPRD_DATA: /app/hoprd/data
+      HOPRD_HOST: "127.0.0.1:9091"
+      # Count flags, not booleans: "0" = off, "1" = on ("true"/"false" fail to parse).
+      HOPRD_ANNOUNCE: "1"
+      HOPRD_API: "1"
+      HOPRD_API_HOST: "0.0.0.0"
+      HOPRD_SAFE_ADDRESS: "0x0000000000000000000000000000000000000000"
+      HOPRD_MODULE_ADDRESS: "0x0000000000000000000000000000000000000000"
+      HOPRD_PASSWORD: ""
+      HOPRD_API_TOKEN: ""
+      # Set this to override the value in hoprd.cfg.yaml
+      HOPRD_BLOKLI_URL: ""
+      # Not exposed by `hoprd --help` in 4.0.3, but still read directly from the
+      # environment rather than as a registered CLI flag.
+      HOPRD_NAT: "true"
+      # gnosisvpn-server's container hostname, resolved to a literal IP at startup by
+      # entrypoint.sh (hoprd's session_ip_forwarding config requires a literal ip:port -
+      # see hoprd.cfg.yaml.tpl and entrypoint.sh for why).
+      GNOSISVPN_SERVER_HOST: gnosisvpn-server
+      ADDITIONAL_CMDLINE_ARGS: ""
+      ADDITIONAL_ENVIRONMENT_VARS: ""
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+  gnosisvpn-server:
+    # Do not set image field here, it will be set automatically by the sdk.
+    build:
+      context: ./gnosisvpn-server
+    cap_add:
+      - NET_ADMIN
+    volumes:
+      - "gnosisvpn-data:/data"
+    environment:
+      WIREGUARD_CIDR: "10.128.0.0/24"
+      WIREGUARD_MTU: "1420"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+volumes:
+  data: {}
+  conf: {}
+  gnosisvpn-data: {}

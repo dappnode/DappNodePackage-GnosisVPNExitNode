@@ -1,0 +1,16 @@
+---
+# Local-only override for exercising the stack outside DAppNode. Not read by the DAppNode
+# SDK (it only looks at docker-compose.yml + dappnode_package.json), so this is safe to keep
+# around. See test/README.md.
+services:
+  node:
+    environment:
+      RUST_LOG: info
+      HOPRD_SAFE_ADDRESS: ${HOPRD_SAFE_ADDRESS}
+      HOPRD_MODULE_ADDRESS: ${HOPRD_MODULE_ADDRESS}
+      HOPRD_PASSWORD: ${HOPRD_PASSWORD}
+      HOPRD_API_TOKEN: ${HOPRD_API_TOKEN}
+      HOPRD_HOST: ${HOPRD_HOST:-127.0.0.1:9091}
+  gnosisvpn-server:
+    environment:
+      WIREGUARD_CIDR: ${WIREGUARD_CIDR:-10.128.0.0/24}

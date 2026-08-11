@@ -1,0 +1,72 @@
+{
+  "name": "gnosisvpn-exit-node.public.dappnode.eth",
+  "version": "1.0.0",
+  "upstreamVersion": "4.0.3",
+  "description": "Run a GnosisVPN exit node: a HOPR node (hoprd) that relays privacy-preserving traffic through the HOPR mixnet, paired with gnosis_vpn-server, which terminates that traffic on a local WireGuard interface and forwards it to the internet. gnosis_vpn-server's own release is tracked separately (see README) since it isn't the SDK-tracked upstream.",
+  "type": "service",
+  "architectures": [
+    "linux/amd64"
+  ],
+  "mainService": "node",
+  "author": "HOPR Association <tech@hoprnet.org> (https://hoprnet.org)",
+  "upstreamRepo": "hoprnet/hoprnet",
+  "upstreamArg": "UPSTREAM_VERSION",
+  "categories": [
+    "Communications",
+    "Economic incentive"
+  ],
+  "links": {
+    "homepage": "https://vpn.gnosis.eth.limo/",
+    "docs": "https://docs.vpn.gnosis.eth.limo/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dappnode/DAppNodePackage-GnosisVPNExitNode"
+  },
+  "bugs": {
+    "url": "https://github.com/dappnode/DAppNodePackage-GnosisVPNExitNode/issues"
+  },
+  "requirements": {
+    "minimumDappnodeVersion": "0.2.56"
+  },
+  "exposable": [
+    {
+      "name": "HOPR p2p",
+      "description": "HOPR P2P port",
+      "port": 9091,
+      "serviceName": "node"
+    },
+    {
+      "name": "GnosisVPN Session port",
+      "description": "Port used for Gnosis VPN",
+      "port": 1422,
+      "serviceName": "node"
+    }
+  ],
+  "license": "GPL-3.0",
+  "backup": [
+    {
+      "name": "data",
+      "path": "/app/hoprd/data"
+    },
+    {
+      "name": "config",
+      "path": "/app/hoprd/conf"
+    },
+    {
+      "name": "gnosisvpn-data",
+      "path": "/data",
+      "service": "gnosisvpn-server"
+    }
+  ],
+  "globalEnvs": [
+    {
+      "envs": [
+        "DOMAIN"
+      ],
+      "services": [
+        "node"
+      ]
+    }
+  ]
+}
