@@ -3,7 +3,6 @@ name: PR
 on:
   pull_request:
     types: [opened, synchronize, reopened, labeled]
-
 jobs:
   test:
     name: Test package
