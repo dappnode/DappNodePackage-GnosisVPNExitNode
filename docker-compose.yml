@@ -8,17 +8,16 @@ services:
         # see https://console.cloud.google.com/artifacts/docker/hoprassociation/europe-west3/docker-images/hoprd
         UPSTREAM_VERSION: >-
           4.0.3@sha256:4b3ff3d3f73ed323e5375471d81dc13fb1a32eccd1a7ba573ebb231542452e35
-    depends_on:
-      - gnosisvpn-server
     ports:
       - "1422:1422/udp"
       - "1422:1422/tcp"
       - "3001:3001/tcp"
       - "9091:9091/tcp"
       - "9091:9091/udp"
+      - "3001:3001/tcp"
     volumes:
-      - "data:/app/hoprd/data"
-      - "conf:/app/hoprd/conf"
+      - "node-data:/app/hoprd/data"
+      - "node-conf:/app/hoprd/conf"
     security_opt:
       - "seccomp:unconfined"
     environment:
@@ -40,10 +39,6 @@ services:
       # Not exposed by `hoprd --help` in 4.0.3, but still read directly from the
       # environment rather than as a registered CLI flag.
       HOPRD_NAT: "true"
-      # gnosisvpn-server's container hostname, resolved to a literal IP at startup by
-      # entrypoint.sh (hoprd's session_ip_forwarding config requires a literal ip:port -
-      # see hoprd.cfg.yaml.tpl and entrypoint.sh for why).
-      GNOSISVPN_SERVER_HOST: gnosisvpn-server
       ADDITIONAL_CMDLINE_ARGS: ""
       ADDITIONAL_ENVIRONMENT_VARS: ""
     restart: unless-stopped
@@ -55,6 +50,14 @@ services:
     # Do not set image field here, it will be set automatically by the sdk.
     build:
       context: ./gnosisvpn-server
+    depends_on:
+      - node
+    # Shares node's network namespace instead of getting its own: hoprd's
+    # session_ip_forwarding needs a literal, stable ip:port for gnosisvpn-server, and this
+    # package can't pin gnosisvpn-server a static IP on a custom docker network (not allowed
+    # for non-core DAppNode packages - see README). Loopback is stable by construction, no
+    # per-boot resolution needed - see hoprd.cfg.yaml.
+    network_mode: "service:node"
     cap_add:
       - NET_ADMIN
     volumes:
@@ -68,6 +71,6 @@ services:
         limits:
           memory: 256M
 volumes:
-  data: {}
-  conf: {}
+  node-data: {}
+  node-conf: {}
   gnosisvpn-data: {}

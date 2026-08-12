@@ -39,21 +39,5 @@ upstream image's own defaults/shape changed.
 
 Update `docker-compose.yml`'s `UPSTREAM_VERSION` build arg, then re-run
 `just validate-config` - hoprd 4.0's config schema is strict (unknown top-level keys in
-`hoprd.cfg.yaml.tpl` are a hard error), so a minor version bump can break it silently
+`hoprd.cfg.yaml` are a hard error), so a minor version bump can break it silently
 otherwise.
-
-# Debugging
-
-When connected to a DAppNode system, follow the link and install the package. If it is a
-development build, make sure to disable signature verification before installing the package.
-
-![howto](bypass_signature_check.png)
-
-# Useful links
-
-- [Official documentation](https://docs.dappnode.io/docs/dev)
-- [http://my.dappnode/public-packages](http://my.dappnode/public-packages) lists installed
-  public packages
-- [http://my.dappnode/package-manifest/gnosisvpn-exit-node.public.dappnode.eth](http://my.dappnode/package-manifest/gnosisvpn-exit-node.public.dappnode.eth)
-  gets the internal view of the package metadata
-

@@ -1,14 +1,13 @@
-# Rendered by entrypoint.sh from this template. PostUp/PreDown are adapted from the
-# gnosisvpn-server Ansible role's wireguard_postup/wireguard_predown (see
-# gnosis_vpn-infrastructure inventory/jura-prod/group_vars/gnosisvpn_exit_nodes/vars.yaml),
-# scoped down to what's possible for a regular (non-core) DAppNode package: no
-# network_mode: host, so no access to the real host's DOCKER-USER iptables chain or its
-# public interface - only this container's own network namespace. MASQUERADE targets "eth0"
-# (this container's own interface on its DAppNode-managed network) rather than the host's
-# NIC; Docker's own host-level NAT then carries that traffic the rest of the way out, same
-# as it does for any other container's egress traffic. tc/peer-bandwidth-shaping and the
-# DOCKER-USER-chain blocklist rules aren't included - see README for the full list of gaps
-# vs. the production fleet.
+# Rendered by entrypoint.sh from this template. PostUp/PreDown do the NAT a WireGuard exit
+# node needs, scoped down to what's possible for a regular (non-core) DAppNode package: no
+# network_mode: host, so this container's network namespace (shared with the node service -
+# see docker-compose.yml's `network_mode: "service:node"` on this service) never reaches the
+# DAppNode host's. MASQUERADE targets "eth0" (that shared network namespace's interface on
+# its DAppNode-managed network) rather than a real public NIC; Docker's own host-level NAT
+# then carries that traffic the rest of the way out, same as it does for any other
+# container's egress traffic. Explicit DOCKER-USER firewall exceptions aren't included for
+# the same reason (no host namespace access) - see README's "Known limitations vs.
+# production" section for why that's not actually a gap here.
 [Interface]
 Address = __WG_ADDRESS__/32
 ListenPort = 51820
