@@ -3,13 +3,13 @@ blokli_url: https://blokli-jura.prod.hoprnet.link
 session_ip_forwarding:
   target_allow_list:
     # session_ip_forwarding requires a literal ip:port (hostnames are rejected by hoprd's own
-    # config parser). This package can't pin gnosisvpn-server a static IP on its own docker
-    # network (no custom docker networks allowed for non-core DAppNode packages - see
-    # README), so instead gnosisvpn-server shares this container's network namespace
-    # (docker-compose.yml's `network_mode: "service:node"`) and is reached over loopback -
-    # a fixed address that needs no per-boot resolution.
-    - "127.0.0.1:51820"    # gnosisvpn-server's WireGuard interface
-    - "127.0.0.1:8000"     # gnosisvpn-server's control endpoint
+    # config parser). This package can't pin gnosisvpn-server a static IP on dncore_network
+    # (not allowed for non-core DAppNode packages - see README), so entrypoint.sh resolves
+    # gnosisvpn-server's DAppNode DNS alias to its current IP at boot and renders this
+    # template (see GNOSISVPN_SERVER_HOST in docker-compose.yml) - this file is not used
+    # directly, only /app/hoprd/conf/hoprd.generated.cfg.yaml, its rendered output.
+    - "__GNOSISVPN_SERVER_IP__:51820"    # gnosisvpn-server's WireGuard interface
+    - "__GNOSISVPN_SERVER_IP__:8000"     # gnosisvpn-server's control endpoint
 strategy:
   allow_recursive: false
   execution_interval: 15s

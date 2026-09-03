@@ -41,10 +41,11 @@ sed \
 
 # Without network_mode: host (not available to regular DAppNode packages - see README),
 # /proc/sys/net/ipv4/ip_forward is read-only from inside this container, so it can't be set
-# here even with NET_ADMIN. In practice it's already 1 on any host capable of running
-# Docker/DAppNode at all (dockerd itself needs it host-wide for container networking), and
-# this container's network namespace - shared with the node service via docker-compose.yml's
-# `network_mode: "service:node"` - inherits that as its default. This is just a sanity check.
+# here even with NET_ADMIN. In practice it's already 1: new network namespaces inherit the
+# current value from their parent netns at creation time (verified directly - not reset to a
+# hard-coded default), and any host capable of running Docker at all already has it enabled
+# for dockerd's own bridge networking. This is just a sanity check, unrelated to which
+# network(s) this container is on.
 current_ip_forward="$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null || echo unknown)"
 if [ "${current_ip_forward}" != "1" ]; then
   echo "gnosisvpn-server: WARNING: net.ipv4.ip_forward is '${current_ip_forward}', not '1', and this container cannot set it itself. VPN client traffic will not reach the internet until it's enabled on the DAppNode host." >&2

@@ -11,6 +11,7 @@ services:
       HOPRD_PASSWORD: ${HOPRD_PASSWORD}
       HOPRD_API_TOKEN: ${HOPRD_API_TOKEN}
       HOPRD_HOST: ${HOPRD_HOST:-127.0.0.1:9091}
+      GNOSISVPN_SERVER_HOST: gnosisvpn-server
   gnosisvpn-server:
     environment:
       WIREGUARD_CIDR: ${WIREGUARD_CIDR:-10.128.0.0/24}

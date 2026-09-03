@@ -39,5 +39,5 @@ upstream image's own defaults/shape changed.
 
 Update `docker-compose.yml`'s `UPSTREAM_VERSION` build arg, then re-run
 `just validate-config` - hoprd 4.0's config schema is strict (unknown top-level keys in
-`hoprd.cfg.yaml` are a hard error), so a minor version bump can break it silently
+`hoprd.cfg.yaml.tpl` are a hard error), so a minor version bump can break it silently
 otherwise.
