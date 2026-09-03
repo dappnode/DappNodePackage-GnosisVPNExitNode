@@ -52,4 +52,4 @@ config_contents="${config_contents%x}"
 printf '%s' "${config_contents//__GNOSISVPN_SERVER_IP__/${gnosisvpn_server_ip}}" >"${RENDERED_CONFIG}"
 export HOPRD_CONFIGURATION_FILE_PATH="${RENDERED_CONFIG}"
 
-env ${ADDITIONAL_ENVIRONMENT_VARS} /bin/docker-entrypoint.sh ${ADDITIONAL_CMDLINE_ARGS}
+env ${ADDITIONAL_ENVIRONMENT_VARS:-} /bin/docker-entrypoint.sh ${ADDITIONAL_CMDLINE_ARGS:-}
