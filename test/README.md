@@ -49,10 +49,10 @@ resolve, so `docker-compose.local.yml` overrides `GNOSISVPN_SERVER_HOST` to plai
 just validate-config   # or: test/validate-hoprd-config.sh
 ```
 
-Runs the real hoprd 4.0.3 binary's own config validator (`hoprd-cfg --validate-args`) against
-`hoprd.cfg.yaml.tpl` (rendered with a dummy IP first), without starting anything. Useful
-after editing it - hoprd 4.0's config schema is strict (unknown top-level keys are a hard
-error).
+Runs hoprd's own config validator (`hoprd-cfg --validate-args`) against `hoprd.cfg.yaml.tpl`
+(rendered with a dummy IP first), without starting anything. Pulls whatever
+`UPSTREAM_VERSION` currently resolves to so this can start failing if an upstream release changes the schema, independently
+of any change here.
 
 
 ```bash
