@@ -10,7 +10,7 @@ fi
 
 CUSTOM_CONFIG=/app/hoprd/conf/hoprd.custom.cfg.yaml
 TEMPLATE_CONFIG=/app/hoprd.cfg.yaml.tpl
-RENDERED_CONFIG=/app/hoprd/conf/hoprd.generated.cfg.yaml
+RENDERED_CONFIG="${HOPRD_CONFIGURATION_FILE_PATH:?HOPRD_CONFIGURATION_FILE_PATH must be set}"
 
 if [ -s "${CUSTOM_CONFIG}" ]; then
   # A config was uploaded via the setup wizard's "Custom HOPR node configuration file"

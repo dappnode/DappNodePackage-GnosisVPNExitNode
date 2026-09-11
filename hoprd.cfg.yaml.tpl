@@ -7,7 +7,7 @@ session_ip_forwarding:
     # (not allowed for non-core DAppNode packages - see README), so entrypoint.sh resolves
     # gnosisvpn-server's DAppNode DNS alias to its current IP at boot and renders this
     # template (see GNOSISVPN_SERVER_HOST in docker-compose.yml) - this file is not used
-    # directly, only /app/hoprd/conf/hoprd.generated.cfg.yaml, its rendered output.
+    # directly, only the rendered output at HOPRD_CONFIGURATION_FILE_PATH.
     - "__GNOSISVPN_SERVER_IP__:51820"    # gnosisvpn-server's WireGuard interface
     - "__GNOSISVPN_SERVER_IP__:8000"     # gnosisvpn-server's control endpoint
 strategy:
