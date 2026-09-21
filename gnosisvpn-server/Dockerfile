@@ -1,4 +1,4 @@
-FROM europe-west3-docker.pkg.dev/gnosisvpn-production/docker-images/gnosis_vpn-server:0.7.0sha256:443c4264bb41a82526ea7d227676f5060633e489569b4fb7fe6299f6a28ff78d
+FROM europe-west3-docker.pkg.dev/gnosisvpn-production/docker-images/gnosis_vpn-server:0.7.0@sha256:443c4264bb41a82526ea7d227676f5060633e489569b4fb7fe6299f6a28ff78d
 
 # The base image (Alpine) ships wg/wg-quick/ip but not iptables/ipset, which the PostUp/PreDown
 # rules in wggvpn.conf.tpl need (ported from the gnosisvpn-server Ansible role).
