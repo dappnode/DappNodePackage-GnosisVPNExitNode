@@ -51,7 +51,7 @@ strategy:
           initial_capacity: "1 GiB"
           topup_capacity: "1 GiB"
           lower_capacity_threshold: "256 MiB"
-          min_safe_capacity_required: "1 GiB"
+          #min_safe_capacity_required: "1 GiB"
           stop_when_unfunded: true
           sizing_mode: deterministic
         proactive_funding:
