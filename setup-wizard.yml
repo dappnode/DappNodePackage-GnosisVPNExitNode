@@ -37,7 +37,7 @@ fields:
     description: |-
       URL of the Blokli provider used by the node to connect to the blockchain.
 
-      Leave empty to use the value already shipped in `hoprd.cfg.yaml` (the same one used by
+      Leave empty to use the value already shipped in `hoprd.cfg.yaml.tpl` (the same one used by
       HOPR Association's own GnosisVPN exit-node fleet). Only set this if you need to point
       the node at a different Blokli endpoint.
     secret: false
@@ -50,9 +50,15 @@ fields:
     required: false
     description: |-
       Upload a custom configuration file for the HOPR node, replacing the shipped
-      `hoprd.cfg.yaml` (jura-prod GnosisVPN exit-node fleet defaults) entirely - including its
-      `session_ip_forwarding` entries, which you'd then need to point at gnosisvpn-server
-      yourself. Uploading here takes priority over the auto-generated config on every start.
+      `hoprd.cfg.yaml.tpl` (jura-prod GnosisVPN exit-node fleet defaults) entirely - including
+      its `session_ip_forwarding` entries. gnosisvpn-server's address isn't fixed (it can
+      differ per install and across a gnosisvpn-server recreate) and hoprd can't resolve it
+      itself (its config parser requires a literal ip:port, not a hostname), so if you
+      reference gnosisvpn-server here, use the literal placeholder `__GNOSISVPN_SERVER_IP__`
+      in place of its address (e.g. `__GNOSISVPN_SERVER_IP__:51820`) - the node substitutes
+      it with gnosisvpn-server's actual current address on every start, the same way it does
+      for the shipped config. Uploading here takes priority over the auto-generated config on
+      every start.
     secret: false
 
   - id: HOPRD_SAFE_ADDRESS

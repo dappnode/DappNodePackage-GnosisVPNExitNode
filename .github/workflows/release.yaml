@@ -23,6 +23,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      # `secrets` isn't a valid context inside `if:` (only env/github/inputs/... are) - see
+      # the "Notify Zulip" step below, which needs these to decide whether to run at all.
+      ZULIP_EMAIL: ${{ secrets.ZULIP_EMAIL }}
+      ZULIP_API_KEY: ${{ secrets.ZULIP_API_KEY }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -82,11 +87,11 @@ jobs:
           gh release edit "$tag" --repo "${{ github.repository }}" --notes-file release-notes.md
 
       - name: Notify Zulip
-        if: ${{ secrets.ZULIP_EMAIL != '' && secrets.ZULIP_API_KEY != '' }}
+        if: ${{ env.ZULIP_EMAIL != '' && env.ZULIP_API_KEY != '' }}
         uses: zulip/github-actions-zulip/send-message@v1
         with:
-          api-key: ${{ secrets.ZULIP_API_KEY }}
-          email: ${{ secrets.ZULIP_EMAIL }}
+          api-key: ${{ env.ZULIP_API_KEY }}
+          email: ${{ env.ZULIP_EMAIL }}
           organization-url: "https://hopr.zulipchat.com"
           type: "stream"
           to: GnosisVPN

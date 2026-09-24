@@ -31,22 +31,28 @@ generated WireGuard public key and `wg show wggvpn`. "Working" looks like:
 - `wg show wggvpn` reporting the interface up with the address from `WIREGUARD_CIDR`
 
 `gnosisvpn-server` doesn't use `network_mode: host` (regular DAppNode packages aren't allowed
-to - see README); instead it shares `node`'s network namespace (`network_mode:
-"service:node"` in `docker-compose.yml`), so `wggvpn` and its `iptables` rules live inside
-that shared namespace, not on your real machine - `just local-down` (or `docker compose
-down`) tears it down along with both containers, nothing to clean up on the host afterward.
-This is also why `hoprd.cfg.yaml`'s `session_ip_forwarding.target_allow_list` can just say
-`127.0.0.1` - from `node`'s point of view, `gnosisvpn-server`'s ports are on loopback.
+to - see README); it runs as an ordinary service with its own network namespace, so `wggvpn`
+and its `iptables` rules live inside that container, not on your real machine - `just
+local-down` (or `docker compose down`) tears it down along with both containers, nothing to
+clean up on the host afterward.
 
-## Validating hoprd.cfg.yaml on its own
+`node`'s `entrypoint.sh` resolves `gnosisvpn-server`'s address at boot (hoprd's
+`session_ip_forwarding.target_allow_list` requires a literal ip:port, hostnames are rejected)
+and renders it into `hoprd.cfg.yaml.tpl` - see that file and `docker-compose.yml`'s
+`GNOSISVPN_SERVER_HOST`. Outside a real DAppNode install there's no DAppNode DNS alias to
+resolve, so `docker-compose.local.yml` overrides `GNOSISVPN_SERVER_HOST` to plain
+`gnosisvpn-server`, which plain `docker compose` resolves via the project's default network.
+
+## Validating hoprd.cfg.yaml.tpl on its own
 
 ```sh
 just validate-config   # or: test/validate-hoprd-config.sh
 ```
 
-Runs the real hoprd 4.0.3 binary's own config validator (`hoprd-cfg --validate-args`) against
-`hoprd.cfg.yaml`, without starting anything. Useful after editing it - hoprd 4.0's config
-schema is strict (unknown top-level keys are a hard error).
+Runs hoprd's own config validator (`hoprd-cfg --validate-args`) against `hoprd.cfg.yaml.tpl`
+(rendered with a dummy IP first), without starting anything. Pulls whatever
+`UPSTREAM_VERSION` currently resolves to so this can start failing if an upstream release changes the schema, independently
+of any change here.
 
 
 ```bash
