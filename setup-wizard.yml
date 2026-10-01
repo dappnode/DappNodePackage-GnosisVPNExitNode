@@ -144,5 +144,5 @@ fields:
       determines the number of available slots in the WireGuard client address pool. Leave
       empty to use the default (`4`).
     secret: false
-    pattern: ^\d{1,3}$
+    pattern: ^([1-9]|[1-9]\d|1\d{2}|2[0-4]\d|25[0-2])$
     patternErrorMessage: Must be a number between 1 and 252
