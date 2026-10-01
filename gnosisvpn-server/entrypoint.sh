@@ -13,7 +13,7 @@ IFS='.' read -r o1 o2 o3 o4 <<<"${cidr_ip}"
 # (matching production) always runs to .254 regardless of the exact prefix length.
 wg_address="${o1}.${o2}.${o3}.$((o4 + 1))"
 wg_start="${o1}.${o2}.${o3}.$((o4 + 2))"
-wg_end="${o1}.${o2}.${o3}.$((o4 + 2 + max_slots))"
+wg_end="${o1}.${o2}.${o3}.$((o4 + 1 + max_slots))"
 
 # gnosis_vpn-server's own wrapper.sh generates a WireGuard key when PRIVATE_KEY isn't set,
 # but doesn't persist it - a fresh key on every restart would break peer registration.
