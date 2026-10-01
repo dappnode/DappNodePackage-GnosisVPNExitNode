@@ -3,6 +3,8 @@ set -euo pipefail
 
 : "${WIREGUARD_CIDR:?WIREGUARD_CIDR must be set, e.g. 10.128.0.0/24}"
 WIREGUARD_MTU="${WIREGUARD_MTU:-1420}"
+# Maximum number of peers (available slots) that can connect to this exit node.
+max_slots="${MAX_SLOTS:-4}"
 
 cidr_ip="${WIREGUARD_CIDR%%/*}"
 IFS='.' read -r o1 o2 o3 o4 <<<"${cidr_ip}"
@@ -11,7 +13,7 @@ IFS='.' read -r o1 o2 o3 o4 <<<"${cidr_ip}"
 # (matching production) always runs to .254 regardless of the exact prefix length.
 wg_address="${o1}.${o2}.${o3}.$((o4 + 1))"
 wg_start="${o1}.${o2}.${o3}.$((o4 + 2))"
-wg_end="${o1}.${o2}.${o3}.254"
+wg_end="${o1}.${o2}.${o3}.$((o4 + 1 + max_slots))"
 
 # gnosis_vpn-server's own wrapper.sh generates a WireGuard key when PRIVATE_KEY isn't set,
 # but doesn't persist it - a fresh key on every restart would break peer registration.
