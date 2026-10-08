@@ -64,6 +64,7 @@ services:
     environment:
       WIREGUARD_CIDR: "10.128.0.0/24"
       WIREGUARD_MTU: "1420"
+      MAX_SLOTS: "4"
     restart: unless-stopped
     deploy:
       resources:
