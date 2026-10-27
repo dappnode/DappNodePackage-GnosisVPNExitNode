@@ -64,6 +64,33 @@ uses the built `gnosisvpn-server` image with nothing mounted or installed, which
 image ships the hook and its tools (`bash`, `iproute2`, `iptables`). Building that image needs
 access to GnosisVPN's registry: `gcloud auth configure-docker europe-west3-docker.pkg.dev`.
 
+## Checking the blocklist and shaping
+
+```sh
+just test-traffic         # or: test/traffic.sh
+just test-traffic-image   # or: TRAFFIC_TEST_IMAGE=<image> test/traffic.sh
+```
+
+Checks the two things the exit node does to forwarded traffic besides isolating it (see the
+README's "Blocklist" and "Per-peer shaping" sections). Both commands:
+
+1. Grep the `gnosisvpn-server` Dockerfile, `entrypoint.sh` and `wg-hooks.sh` for the wiring: the
+   image ships both scripts, the entrypoint loads the cached list and starts the refresher, and
+   the hook runs the shaping.
+2. Run `test/traffic-check.sh` in a throwaway privileged container. On top of the firewall
+   suite's veth and client namespace there is a third namespace standing in for a public host
+   that answers pings, so "the client still reaches the internet" is a real reply rather than a
+   rule counter. Feeds are `file://` URLs, so no network is needed.
+
+It covers the blocklist parser and the fail-open paths (a feed below the minimum entry count, an
+unreachable feed, reloading from the cache), that a blocklisted destination really is dropped
+while a public one is not, and that every peer slot has an HTB class in both directions with
+packets actually counted in it.
+
+`test-traffic` uses `alpine` with the repo's scripts mounted in. `test-traffic-image` uses the
+built image with nothing mounted or installed, which proves it ships `ipset` and `curl` as well
+as the scripts.
+
 ## Validating hoprd.cfg.yaml.tpl on its own
 
 ```sh

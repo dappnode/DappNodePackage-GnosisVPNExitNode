@@ -15,6 +15,12 @@ set -euo pipefail
 
 WG_IF="wggvpn"
 PRIVATE_CHAIN="GVPN_PRIVATE"
+# Filled by gvpn-blocklist-update.sh, which entrypoint.sh starts; this hook only
+# drops traffic against it, and leaves the set in the kernel on `down` so the
+# refresher keeps working across interface restarts.
+BLOCKLIST_SET="${GVPN_BLOCKLIST_IPSET_NAME:-gvpn-blocklist}"
+BLOCKLIST_MAXELEM="${GVPN_BLOCKLIST_MAXELEM:-131072}"
+SHAPING_BIN="${GVPN_SHAPING_BIN:-/app/gvpn-peer-shaping.sh}"
 
 usage() {
   echo "usage: ${0} up|down <client-cidr> <server-address> [uplink]" >&2
@@ -47,6 +53,8 @@ PRIVATE_NETS=(
 )
 
 PRIVATE_JUMP=(FORWARD -i "${WG_IF}" -j "${PRIVATE_CHAIN}")
+BLOCKLIST_DST_DROP=(FORWARD -i "${WG_IF}" -m set --match-set "${BLOCKLIST_SET}" dst -j DROP)
+BLOCKLIST_SRC_DROP=(FORWARD -o "${WG_IF}" -m set --match-set "${BLOCKLIST_SET}" src -j DROP)
 CLIENT_ACCEPT=(FORWARD -i "${WG_IF}" -o "${uplink}" -j ACCEPT)
 # shellcheck disable=SC2054  # the comma belongs to --ctstate, not the array
 RETURN_ACCEPT=(FORWARD -o "${WG_IF}" -m conntrack --ctstate RELATED,ESTABLISHED -j ACCEPT)
@@ -103,26 +111,46 @@ up() {
   while IFS= read -r net; do
     iptables -A "${PRIVATE_CHAIN}" -d "${net}" -j DROP
   done <<<"${nets}"
-  # -I without a rule number inserts at the head, ahead of anything else.
+  # The blocklist rules resolve the set name, so it has to exist first. The
+  # refresher fills this same set in place with ipset swap.
+  ipset create "${BLOCKLIST_SET}" hash:net family inet maxelem "${BLOCKLIST_MAXELEM}" -exist
+
+  # -I without a rule number inserts at the head, ahead of anything else, so
+  # every drop lands in front of the client ACCEPT below.
+  iptables -I "${BLOCKLIST_DST_DROP[@]}"
+  iptables -I "${BLOCKLIST_SRC_DROP[@]}"
   iptables -I "${PRIVATE_JUMP[@]}"
   iptables -A "${CLIENT_ACCEPT[@]}"
   iptables -A "${RETURN_ACCEPT[@]}"
   iptables -I "${CLIENT_DROP[@]}"
   iptables -I "${PING_ACCEPT[@]}"
+
+  # tc and the ifb/sch_* modules come from the DAppNode host's kernel, which this
+  # container cannot load modules into. A host without them gets an unshaped exit
+  # node and this line in the log, rather than no exit node at all.
+  if ! "${SHAPING_BIN}" up; then
+    echo "wg-hooks: per-peer shaping failed; VPN clients are not rate limited" >&2
+  fi
+
   iptables -t nat -A "${NAT_RULE[@]}"
 }
 
 down() {
   iptables -t nat -D "${NAT_RULE[@]}" 2>/dev/null || true
+  "${SHAPING_BIN}" down 2>/dev/null || true
   iptables -D "${PING_ACCEPT[@]}" 2>/dev/null || true
   iptables -D "${CLIENT_DROP[@]}" 2>/dev/null || true
   iptables -D "${RETURN_ACCEPT[@]}" 2>/dev/null || true
   iptables -D "${CLIENT_ACCEPT[@]}" 2>/dev/null || true
   iptables -D "${PRIVATE_JUMP[@]}" 2>/dev/null || true
+  iptables -D "${BLOCKLIST_SRC_DROP[@]}" 2>/dev/null || true
+  iptables -D "${BLOCKLIST_DST_DROP[@]}" 2>/dev/null || true
   iptables -F "${PRIVATE_CHAIN}" 2>/dev/null || true
   iptables -X "${PRIVATE_CHAIN}" 2>/dev/null || true
   # FORWARD stays DROP on purpose: nothing forwards without the interface, and
   # a hook that failed half way must not leave the namespace open.
+  # The blocklist set stays too: emptying it on every interface sync would
+  # leave the blocklist inactive until the next refresh.
 }
 
 main() {

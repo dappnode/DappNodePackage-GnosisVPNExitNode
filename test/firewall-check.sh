@@ -9,6 +9,9 @@ set -euo pipefail
 HOOK=/app/wg-hooks.sh
 WG_IF=wggvpn
 CHAIN_PRIVATE=GVPN_PRIVATE
+# The hook also runs the per-peer shaping; that is test/traffic-check.sh's
+# subject, so stub it out here rather than mount it and depend on tc and ifb.
+export GVPN_SHAPING_BIN=/bin/true
 CLIENT_CIDR=10.128.0.0/24
 SERVER_ADDRESS=10.128.0.1
 CLIENT_ADDRESS=10.128.0.2
@@ -182,8 +185,8 @@ else
   fail "INPUT policy is '${input_policy}', expected '-P INPUT ACCEPT'"
 fi
 
-# One jump and one accept, not a stack of them from the second `up`.
-expect_rule_count FORWARD "-i ${WG_IF}" 2 "FORWARD has exactly one jump and one client accept"
+# One of each, not a stack of them from the second `up`.
+expect_rule_count FORWARD "-i ${WG_IF}" 3 "FORWARD has one private jump, one blocklist drop and one client accept"
 expect_rule_count INPUT "-i ${WG_IF}" 2 "INPUT has exactly one ping accept and one client drop"
 
 first_forward_rule="$(iptables -t filter -S FORWARD | sed -n '2p')"

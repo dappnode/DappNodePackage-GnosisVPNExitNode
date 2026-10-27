@@ -26,3 +26,12 @@ test-firewall:
 test-firewall-image:
     docker build -t gnosisvpn-server:firewall-test gnosisvpn-server
     FIREWALL_TEST_IMAGE=gnosisvpn-server:firewall-test ./test/firewall.sh
+
+# Check the blocklist and per-peer shaping the exit node applies
+test-traffic:
+    ./test/traffic.sh
+
+# Run the same blocklist and shaping checks inside the built image
+test-traffic-image:
+    docker build -t gnosisvpn-server:traffic-test gnosisvpn-server
+    TRAFFIC_TEST_IMAGE=gnosisvpn-server:traffic-test ./test/traffic.sh

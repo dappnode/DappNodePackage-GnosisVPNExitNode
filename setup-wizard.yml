@@ -129,7 +129,9 @@ fields:
       Private IPv4 subnet used to assign addresses to WireGuard clients connecting through
       this exit node. Leave empty to use the default (`10.128.0.0/24`, up to 253 clients).
     secret: false
-    pattern: ^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d{1,2}$
+    # Double-quoted so YAML turns \ into a single backslash: the UI applies the pattern with
+    # new RegExp(), and a plain scalar would hand it a literal \d.
+    pattern: "^\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}\\.\\d{1,3}/\\d{1,2}$"
     patternErrorMessage: Must be a valid CIDR, e.g. 10.128.0.0/24
 
   - id: MAX_SLOTS
@@ -144,5 +146,66 @@ fields:
       determines the number of available slots in the WireGuard client address pool. Leave
       empty to use the default (`4`).
     secret: false
-    pattern: ^([1-9]|[1-9]\d|1\d{2}|2[0-4]\d|25[0-2])$
+    pattern: "^([1-9]|[1-9]\\d|1\\d{2}|2[0-4]\\d|25[0-2])$"
     patternErrorMessage: Must be a number between 1 and 252
+
+  - id: GVPN_PEER_RATE_KBIT
+    target:
+      type: environment
+      name: GVPN_PEER_RATE_KBIT
+      service: gnosisvpn-server
+    title: Per-client bandwidth limit (advanced)
+    required: false
+    description: |-
+      Each connected VPN client is limited to this rate in each direction, in kbit/s. Shaping
+      queues packets instead of dropping them, so TCP slows down smoothly at the limit. Leave
+      empty to use the default (`10000`, i.e. 10 Mbit/s).
+    secret: false
+    pattern: ^[1-9][0-9]*$
+    patternErrorMessage: Must be a positive whole number of kbit/s, e.g. 10000
+
+  - id: GVPN_PEER_SHAPING_AGGREGATE_KBIT
+    target:
+      type: environment
+      name: GVPN_PEER_SHAPING_AGGREGATE_KBIT
+      service: gnosisvpn-server
+    title: Total bandwidth limit for all clients (advanced)
+    required: false
+    description: |-
+      All connected clients together are limited to this rate, in kbit/s. Keep it below your
+      uplink speed so the exit node cannot saturate your connection. Leave empty to use the
+      default (`25000`, i.e. 25 Mbit/s).
+    secret: false
+    pattern: ^[1-9][0-9]*$
+    patternErrorMessage: Must be a positive whole number of kbit/s, e.g. 25000
+
+  - id: GVPN_BLOCKLIST_FEEDS
+    target:
+      type: environment
+      name: GVPN_BLOCKLIST_FEEDS
+      service: gnosisvpn-server
+    title: Blocklist feeds (advanced)
+    required: false
+    description: |-
+      Space-separated URLs of IPv4 threat feeds, each listing one address or CIDR per line.
+      Traffic from VPN clients to these addresses, and from them back to clients, is dropped.
+      Leave empty to use the default: FireHOL level1, the same feed GnosisVPN's own exit nodes
+      use.
+    secret: false
+    pattern: ^(https?://[^ ]+)( (https?://[^ ]+))*$
+    patternErrorMessage: Must be one or more space-separated http(s) URLs
+
+  - id: GVPN_BLOCKLIST_REFRESH_INTERVAL_S
+    target:
+      type: environment
+      name: GVPN_BLOCKLIST_REFRESH_INTERVAL_S
+      service: gnosisvpn-server
+    title: Blocklist refresh interval (advanced)
+    required: false
+    description: |-
+      How often the blocklist feeds are fetched, in seconds, plus up to one hour of jitter.
+      Leave empty to use the default (`43200`, twice a day). A refresh that fails, or that
+      parses to an implausible number of entries, keeps the previous list.
+    secret: false
+    pattern: ^[1-9][0-9]*$
+    patternErrorMessage: Must be a positive whole number of seconds, e.g. 43200

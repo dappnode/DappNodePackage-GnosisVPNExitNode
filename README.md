@@ -63,11 +63,72 @@ Not covered:
     such a host unless the host firewall restricts those services by source.
   - On a router in front of the host: whatever the router hairpins back, e.g. its admin UI if
     it listens on WAN, and every forwarded port. Assume NAT loopback is on.
-- The appliance's FireHOL blocklist and per-peer traffic shaping. They aren't about local
-  access.
-
 `just test-firewall` and `just test-firewall-image` check these rules (see
 [`test/README.md`](test/README.md)).
+
+## Blocklist
+
+[`gnosisvpn-server/gvpn-blocklist-update.sh`](gnosisvpn-server/gvpn-blocklist-update.sh) fills
+the `gvpn-blocklist` ipset, and `wg-hooks.sh` drops traffic to it, and traffic from it back to
+clients, before the client ACCEPT. Ported from the appliance, which uses the same FireHOL level1
+feed:
+
+- `entrypoint.sh` loads the cached list before it starts the server, so the last known-good list
+  filters the first forwarded packet. The cache lives in the `gnosisvpn-data` volume.
+- It then runs the refresher as a child process. A container has no timer, so the appliance's
+  twice-daily systemd timer becomes "refresh now, then every 12 h plus up to 1 h of jitter".
+- A refresh swaps the whole set in atomically (`ipset swap`), so forwarding never sees a
+  half-built list.
+- It fails open. An unreachable feed, or one that parses to fewer than 1000 or more than 131072
+  entries, leaves the previous list in place and logs why. A poisoned `0.0.0.0/1` can't
+  blackhole every session, because prefixes shorter than /8 are only accepted for the 224/3
+  bogon range.
+- IPv4 only, like the isolation rules - see "Not covered" above for why client IPv6 never
+  reaches the tunnel.
+
+Feeds are configured from the DAppNode UI, see "Settings in the DAppNode UI" below.
+
+## Per-peer shaping
+
+[`gnosisvpn-server/gvpn-peer-shaping.sh`](gnosisvpn-server/gvpn-peer-shaping.sh) builds an HTB
+tree on `wggvpn` when `wg-hooks.sh` runs, with one class per peer slot:
+
+- Download (server to client) is classified by destination address on `wggvpn` egress.
+- Upload (client to internet) is mirrored from `wggvpn` ingress onto an `ifb-gvpn` device and
+  classified there by source address. It has to happen on the `wggvpn` side: the uplink only
+  ever sees post-MASQUERADE addresses.
+- Each peer is capped at `GVPN_PEER_RATE_KBIT` (default 10000) and all peers together at
+  `GVPN_PEER_SHAPING_AGGREGATE_KBIT` (default 25000). It queues rather than drops, so TCP
+  settles at the cap instead of sawtoothing, and fq_codel signals with delay before loss
+  because a dropped packet costs an end-to-end retransmit across the mixnet.
+- `entrypoint.sh` derives the peer range from `WIREGUARD_CIDR` and `MAX_SLOTS`, the same way it
+  derives the pool for `config.toml`, and exports it for the `wg-quick` process that runs the
+  hook.
+- Unlike the appliance, a shaping failure does not stop the exit node. `tc` and the `ifb`/`sch_*`
+  modules come from the DAppNode host's kernel, and this container can't load modules into it. A
+  host without them serves unshaped and logs `per-peer shaping failed` on every interface sync.
+
+`just test-traffic` and `just test-traffic-image` check both of these (see
+[`test/README.md`](test/README.md)).
+
+## Settings in the DAppNode UI
+
+The exit node's limits and blocklist are optional fields in the package's setup wizard, so they
+are set in the DAppNode UI (the package's **Config**, or the wizard on install) rather than by
+editing `docker-compose.yml`. Leaving a field empty keeps the default:
+
+| UI field | Variable | Default |
+|---|---|---|
+| Per-client bandwidth limit | `GVPN_PEER_RATE_KBIT` | `10000` kbit/s |
+| Total bandwidth limit for all clients | `GVPN_PEER_SHAPING_AGGREGATE_KBIT` | `25000` kbit/s |
+| Blocklist feeds | `GVPN_BLOCKLIST_FEEDS` | FireHOL level1 |
+| Blocklist refresh interval | `GVPN_BLOCKLIST_REFRESH_INTERVAL_S` | `43200` s |
+| WireGuard client subnet | `WIREGUARD_CIDR` | `10.128.0.0/24` |
+| Maximum connected peers | `MAX_SLOTS` | `4` |
+
+Feed URLs are space-separated; one per line works too. The rest of the `GVPN_BLOCKLIST_*`
+variables (minimum entries, download timeout, jitter) stay environment-only, with the
+appliance's defaults.
 
 ## Known limitations vs. production
 

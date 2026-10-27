@@ -65,6 +65,13 @@ services:
       WIREGUARD_CIDR: "10.128.0.0/24"
       WIREGUARD_MTU: "1420"
       MAX_SLOTS: "4"
+      # Per-peer traffic shaping, in kbit/s: each client is capped at the per-peer rate and
+      # all clients together at the aggregate. See README's "Per-peer shaping".
+      GVPN_PEER_RATE_KBIT: "10000"
+      GVPN_PEER_SHAPING_AGGREGATE_KBIT: "25000"
+      # Space-separated threat feeds for the blocklist. The last known-good list is cached
+      # in the gnosisvpn-data volume. See README's "Blocklist".
+      GVPN_BLOCKLIST_FEEDS: "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"
     restart: unless-stopped
     deploy:
       resources:

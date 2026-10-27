@@ -31,5 +31,5 @@ else
     -v "${PWD}/gnosisvpn-server/wg-hooks.sh:/app/wg-hooks.sh:ro" \
     -v "${PWD}/test/firewall-check.sh:/firewall-check.sh:ro" \
     alpine:3 \
-    sh -c 'apk add --no-cache --quiet bash iptables iproute2 >/dev/null && bash /firewall-check.sh'
+    sh -c 'apk add --no-cache --quiet bash iptables iproute2 ipset >/dev/null && bash /firewall-check.sh'
 fi
