@@ -49,6 +49,8 @@ untrusted third party, so only publicly addressed destinations are allowed throu
   control API on port 8000 or anything else this container listens on.
 - `up` removes its own rules first, so restarting the interface never stacks duplicates, and
   `down` leaves FORWARD at DROP, so a hook that failed half way can't leave the namespace open.
+- `entrypoint.sh` sets FORWARD to DROP before it starts `gnosis_vpn-server`, because wg-quick
+  brings `wggvpn` up before PostUp runs the hook. A client packet in between is dropped.
 
 Not covered, matching the appliance:
 
@@ -58,17 +60,27 @@ Not covered, matching the appliance:
   IPv6 in `ip6tables` as a second line of defence; here the guarantee is that upstream
   configuration, so it is worth re-checking when `gnosis_vpn-server` gains IPv6 support
   ([gnosis/gnosis_vpn-client#330](https://github.com/gnosis/gnosis_vpn-client/issues/330)).
-- The host's own public IPv4 address (the router's WAN address). The appliance drops it from
-  an ipset it fills with HTTPS-observed addresses, so a client can't reach the router, or a
-  LAN host hairpinned through it, via that address. Porting that would mean the same external
-  lookup from inside the container, so it isn't: a packet to the WAN address is a public
-  destination, passes the ranges above, and is stopped only if the router refuses to hairpin
-  it. The host's *private* addresses are covered above; its WAN address is not.
+- The DAppNode's own public IPv4 address. The appliance drops it from an ipset it fills with
+  HTTPS-observed addresses. Porting that would mean the same external lookup from inside the
+  container, so it isn't: a packet to that address is a public destination and passes the
+  ranges above. What a client then reaches depends on where the address lives:
+  - On the host's own NIC (a VPS, or a host the ISP hands a public address directly): the
+    host itself. Every service the host listens on and every port a package publishes is
+    reachable from the tunnel - SSH, and this package's own hoprd API on `3001`, among
+    them. Don't run this package on such a host unless the host firewall restricts those
+    services by source.
+  - On a router in front of the host (the router's WAN address): whatever the router
+    hairpins back to the LAN - its own admin interface if it listens on WAN, and every port
+    forwarded to the DAppNode or another LAN host. Many consumer routers do NAT loopback by
+    default, so assume they do.
+
+  The host's *private* addresses are covered above; its public address is not.
 - The FireHOL blocklist and the per-peer traffic shaping the appliance adds. They aren't
   about reaching local resources, so they aren't ported.
 
 `just test-firewall` checks the rules themselves, including that a client behind `wggvpn`
-still reaches public destinations and the tunnel-verification ping (see
+still reaches public destinations and the tunnel-verification ping, and
+`just test-firewall-image` runs the same checks inside the built `gnosisvpn-server` image (see
 [`test/README.md`](test/README.md)).
 
 ## Known limitations vs. production

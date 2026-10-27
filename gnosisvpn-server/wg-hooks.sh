@@ -69,7 +69,12 @@ NAT_RULE=(POSTROUTING -s "${client_cidr}" -o "${uplink}" -j MASQUERADE)
 # own route for the interface is its configured subnet.
 own_network() {
   local network
-  network="$(ip -4 route show dev "${uplink}" proto kernel scope link | awk '{ print $1; exit }')"
+  # awk reads to the end rather than exiting early, so ip never hits a closed
+  # pipe and pipefail only reports a real failure of ip itself.
+  if ! network="$(ip -4 route show dev "${uplink}" proto kernel scope link | awk 'NR == 1 { print $1 }')"; then
+    echo "wg-hooks: cannot read the routes of ${uplink}" >&2
+    return 1
+  fi
   if [[ -z "${network}" ]]; then
     echo "wg-hooks: no IPv4 subnet on ${uplink}; only the static ranges are dropped" >&2
     return 0
@@ -78,8 +83,9 @@ own_network() {
 }
 
 private_nets() {
-  local net
-  printf '%s\n' "${PRIVATE_NETS[@]}" "$(own_network)" | awk 'NF && !seen[$0]++'
+  local own
+  own="$(own_network)" || return 1
+  printf '%s\n' "${PRIVATE_NETS[@]}" "${own}" | awk 'NF && !seen[$0]++'
 }
 
 up() {
@@ -101,10 +107,14 @@ up() {
   # rules below are still being installed is dropped rather than forwarded.
   iptables -P FORWARD DROP
   iptables -N "${PRIVATE_CHAIN}" 2>/dev/null || iptables -F "${PRIVATE_CHAIN}"
-  local net
+  # Collected up front rather than read from a process substitution, whose
+  # failure bash would ignore: a range that could not be determined has to stop
+  # the hook, not go silently missing from the chain.
+  local nets net
+  nets="$(private_nets)"
   while IFS= read -r net; do
     iptables -A "${PRIVATE_CHAIN}" -d "${net}" -j DROP
-  done < <(private_nets)
+  done <<<"${nets}"
   # -I without a rule number inserts at the head, ahead of anything else.
   iptables -I "${PRIVATE_JUMP[@]}"
   iptables -A "${CLIENT_ACCEPT[@]}"

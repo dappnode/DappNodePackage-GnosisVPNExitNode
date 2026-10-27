@@ -17,6 +17,13 @@ jobs:
       - name: Check that VPN clients can't reach local resources
         run: ./test/firewall.sh
 
+      # Same checks inside the image that ships, so a missing bash/iproute2/iptables fails here
+      # rather than on a DAppNode. Pulls the same base image the package build below does.
+      - name: Check the firewall inside the built gnosisvpn-server image
+        run: |
+          docker build -t gnosisvpn-server:firewall-test gnosisvpn-server
+          FIREWALL_TEST_IMAGE=gnosisvpn-server:firewall-test ./test/firewall.sh
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

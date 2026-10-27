@@ -47,11 +47,13 @@ fail() {
 }
 
 setup() {
-  # The uplink, and a route to the public probe that leaves through it.
+  # The uplink, as the default route: that is what eth0 is for the real exit
+  # node, so a private destination that the hook failed to drop would leave
+  # through it and match the client ACCEPT, just as it would in production.
   ip link add "${UPLINK}" type dummy
   ip addr add 198.51.100.10/24 dev "${UPLINK}"
   ip link set "${UPLINK}" up
-  ip route add 203.0.113.0/24 dev "${UPLINK}"
+  ip route replace default dev "${UPLINK}"
 
   # The tunnel, and the client behind it.
   ip netns add "${CLIENT_NS}"
@@ -219,6 +221,7 @@ expect_unmatched FORWARD "-i ${WG_IF} -o ${UPLINK} -j ACCEPT" "client to a LAN a
 zero_counters
 probe_from_client 172.33.0.1
 expect_matched "${CHAIN_PRIVATE}" "-d 172.33.0.0/16" "client to the DAppNode host hits the private drop"
+expect_unmatched FORWARD "-i ${WG_IF} -o ${UPLINK} -j ACCEPT" "client to the DAppNode host is not forwarded"
 
 zero_counters
 probe_from_client 198.51.100.20
@@ -317,6 +320,33 @@ for step in "-j ACCEPT" "--ctstate" "--icmp-type"; do
     fail "after failing '${step}' a VPN client is no longer isolated"
   fi
 done
+"${HOOK}" down "${CLIENT_CIDR}" "${SERVER_ADDRESS}" "${UPLINK}"
+
+# --- a hook that cannot read the uplink's subnet refuses to install ----------
+# Without that subnet the exit's own network would only be covered by the
+# static ranges, so an `ip` failure has to stop the hook, not be skipped over.
+real_ip="$(command -v ip)"
+cat >"${mock_bin}/ip" <<MOCK
+#!/bin/bash
+if [[ "\$*" == *"route show"* ]]; then
+  echo "mock ip: failing on '\$*'" >&2
+  exit 1
+fi
+exec "${real_ip}" "\$@"
+MOCK
+chmod +x "${mock_bin}/ip"
+
+if PATH="${mock_bin}:${PATH}" \
+  "${HOOK}" up "${CLIENT_CIDR}" "${SERVER_ADDRESS}" "${UPLINK}" 2>/dev/null; then
+  fail "the hook reported success although reading the routes of ${UPLINK} failed"
+else
+  pass "the hook fails when reading the routes of ${UPLINK} fails"
+fi
+if closed_after_partial_install; then
+  pass "a hook that could not read the routes of ${UPLINK} still isolates VPN clients"
+else
+  fail "after failing to read the routes of ${UPLINK} a VPN client is no longer isolated"
+fi
 "${HOOK}" down "${CLIENT_CIDR}" "${SERVER_ADDRESS}" "${UPLINK}"
 rm -rf "${mock_bin}"
 

@@ -21,3 +21,8 @@ validate-config:
 # Check that VPN clients can't reach local resources through the exit node
 test-firewall:
     ./test/firewall.sh
+
+# Run the same firewall checks inside the built gnosisvpn-server image
+test-firewall-image:
+    docker build -t gnosisvpn-server:firewall-test gnosisvpn-server
+    FIREWALL_TEST_IMAGE=gnosisvpn-server:firewall-test ./test/firewall.sh
