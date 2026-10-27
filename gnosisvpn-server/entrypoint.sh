@@ -53,10 +53,9 @@ if [ "${current_ip_forward}" != "1" ]; then
   echo "gnosisvpn-server: WARNING: net.ipv4.ip_forward is '${current_ip_forward}', not '1', and this container cannot set it itself. VPN client traffic will not reach the internet until it's enabled on the DAppNode host." >&2
 fi
 
-# wg-quick brings wggvpn up, and adds its peers, before PostUp runs wg-hooks.sh. Close
-# FORWARD now so that a client packet arriving in between is dropped rather than forwarded
-# unfiltered; wg-hooks.sh then opens exactly the public path. Fails the container if it
-# can't be set, since the exit node must not start without it.
+# wg-quick brings wggvpn up (with its peers) before PostUp runs wg-hooks.sh, so close
+# FORWARD now; wg-hooks.sh then opens only the public path. If this fails, the container
+# fails: the exit node must not start without it.
 iptables -P FORWARD DROP
 
 # Run the binary directly as PID 1 (not via the image's wrapper.sh, which launches it as a

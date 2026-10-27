@@ -1,10 +1,9 @@
 #!/bin/bash
-# Runs inside a throwaway privileged container (see test/firewall.sh), because
-# the rules wg-hooks.sh installs only make sense in a network namespace this
-# test may throw away. A veth pair named wggvpn stands in for the WireGuard
-# interface and a second network namespace stands in for a VPN client, so the
-# traffic below is really forwarded across wggvpn by this namespace instead of
-# merely looking right in the ruleset.
+# Runs inside a throwaway privileged container (see test/firewall.sh), so the
+# rules wg-hooks.sh installs land in a network namespace the test can discard.
+# A veth pair named wggvpn stands in for WireGuard and a second namespace for a
+# VPN client, so probes are really forwarded across wggvpn, not just checked
+# against the ruleset.
 set -euo pipefail
 
 HOOK=/app/wg-hooks.sh
@@ -13,19 +12,18 @@ CHAIN_PRIVATE=GVPN_PRIVATE
 CLIENT_CIDR=10.128.0.0/24
 SERVER_ADDRESS=10.128.0.1
 CLIENT_ADDRESS=10.128.0.2
-# The uplink is a dummy interface on a public-looking range, so that the subnet
-# wg-hooks.sh derives from it cannot be confused with any of the static private
-# ranges it drops.
+# The uplink is a dummy on a public-looking range, so the subnet wg-hooks.sh
+# derives from it can't be confused with a static private range.
 UPLINK=eth1
 UPLINK_SUBNET=198.51.100.0/24
-# TEST-NET-3, routed out the uplink: publicly addressed, never reachable, so
-# "accepted by FORWARD" is all a probe to it can prove.
+# TEST-NET-3, routed out the uplink: public but never reachable, so a probe to
+# it can only prove that FORWARD accepted it.
 PUBLIC_PROBE=203.0.113.1
 CLIENT_NS=vpn-client
 CLIENT_IF=veth-client
 
-# Every destination the hook is expected to drop, the uplink's own subnet
-# included because the hook derives it at runtime.
+# Every destination the hook should drop, including the uplink subnet it
+# derives at runtime.
 DROPPED_NETS=(
   10.0.0.0/8
   172.16.0.0/12
@@ -47,9 +45,9 @@ fail() {
 }
 
 setup() {
-  # The uplink, as the default route: that is what eth0 is for the real exit
-  # node, so a private destination that the hook failed to drop would leave
-  # through it and match the client ACCEPT, just as it would in production.
+  # The uplink is the default route, like eth0 on the real exit node, so a
+  # private destination the hook missed would leave through it and match the
+  # client ACCEPT.
   ip link add "${UPLINK}" type dummy
   ip addr add 198.51.100.10/24 dev "${UPLINK}"
   ip link set "${UPLINK}" up
@@ -64,13 +62,12 @@ setup() {
   ip -n "${CLIENT_NS}" addr add "${CLIENT_ADDRESS}/24" dev "${CLIENT_IF}"
   ip -n "${CLIENT_NS}" link set "${CLIENT_IF}" up
   ip -n "${CLIENT_NS}" link set lo up
-  # Everything the client sends leaves through the tunnel, which is what a
-  # full-tunnel VPN does (the client's wireguard.allowed_ips defaults to
-  # 0.0.0.0/0 when unset).
+  # Full tunnel: all client traffic goes through wggvpn (the client's
+  # wireguard.allowed_ips defaults to 0.0.0.0/0).
   ip -n "${CLIENT_NS}" route add default via "${SERVER_ADDRESS}"
 
-  # An address on a network that is neither the uplink's nor the tunnel's,
-  # standing in for the exit node's other interfaces.
+  # An address outside the uplink and tunnel networks, standing in for the
+  # exit node's other interfaces.
   OTHER_ADDRESS="$(ip -4 -o addr show dev eth0 | awk '{ print $4 }' | cut -d/ -f1)"
   [ -n "${OTHER_ADDRESS}" ] || {
     echo "no IPv4 address on eth0 to probe the control API on" >&2
@@ -78,10 +75,9 @@ setup() {
   }
 }
 
-# Packets matched by the rule in CHAIN whose `iptables -S -v` line contains
-# SPEC once the counters are stripped (`iptables -S -v` prints them as
-# `-c PACKETS BYTES` in the middle of the rule). Counters are zeroed before
-# every probe, so a count is attributable to that probe alone.
+# Packet count of the rule in CHAIN whose `iptables -S -v` line contains SPEC,
+# with the `-c PACKETS BYTES` counters stripped. Counters are zeroed before
+# every probe, so the count belongs to that probe.
 counter() {
   local chain="$1" spec="$2"
   iptables -t filter -S "${chain}" -v | awk -v want="${spec}" -v prefix="-A ${chain} " '
@@ -176,9 +172,9 @@ else
   fail "FORWARD policy is '${forward_policy}', expected '-P FORWARD DROP'"
 fi
 
-# hoprd reaches the control API and the WireGuard port from another container
-# on dncore_network as a new inbound connection, so INPUT has to stay open on
-# eth0; only the tunnel is filtered. Tightening this would break the exit node.
+# hoprd opens new connections to the control API and WireGuard port from
+# dncore_network via eth0, so INPUT must stay ACCEPT or the exit node breaks.
+# Only the tunnel is filtered.
 input_policy="$(iptables -t filter -S INPUT | sed -n '1p')"
 if [ "${input_policy}" = "-P INPUT ACCEPT" ]; then
   pass "INPUT policy is ACCEPT, so hoprd can still reach the exit node"
@@ -244,8 +240,8 @@ expect_matched INPUT "-i ${WG_IF} -p icmp -m icmp --icmp-type 8 -j ACCEPT" "clie
 expect_unmatched INPUT "-i ${WG_IF} -j DROP" "client ping to the WireGuard address is not dropped"
 
 # --- ...and nothing else from the tunnel reaches the exit ---------------------
-# The drop that catches this is protocol and port agnostic, so an echo to the
-# exit's own address is enough to prove the control API on it is out of reach.
+# The drop is protocol- and port-agnostic, so an echo to the exit's own
+# address proves the control API on it is unreachable.
 zero_counters
 probe_from_client "${OTHER_ADDRESS}"
 expect_matched INPUT "-i ${WG_IF} -j DROP" "client to the exit's other addresses is dropped"
@@ -276,9 +272,9 @@ else
 fi
 
 # --- a hook that fails half way leaves the namespace closed -------------------
-# Fail each installing step in turn with a mocked iptables on PATH, then check
-# that no client packet can reach a private destination in the half-installed
-# state: the isolation jump has to precede any ACCEPT, and the policy is DROP.
+# Fail each install step in turn with a mocked iptables on PATH, then check the
+# half-installed state still isolates clients: policy DROP, and the private
+# jump before any ACCEPT.
 closed_after_partial_install() {
   local policy first
   policy="$(iptables -t filter -S FORWARD | sed -n '1p')"
@@ -323,8 +319,8 @@ done
 "${HOOK}" down "${CLIENT_CIDR}" "${SERVER_ADDRESS}" "${UPLINK}"
 
 # --- a hook that cannot read the uplink's subnet refuses to install ----------
-# Without that subnet the exit's own network would only be covered by the
-# static ranges, so an `ip` failure has to stop the hook, not be skipped over.
+# Without the uplink subnet only the static ranges cover the exit's own
+# network, so an `ip` failure must stop the hook.
 real_ip="$(command -v ip)"
 cat >"${mock_bin}/ip" <<MOCK
 #!/bin/bash

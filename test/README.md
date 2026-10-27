@@ -46,30 +46,23 @@ resolve, so `docker-compose.local.yml` overrides `GNOSISVPN_SERVER_HOST` to plai
 ## Checking the firewall
 
 ```sh
-just test-firewall   # or: test/firewall.sh
-```
-
-Checks that a VPN client tunnelled through this exit node can't reach local resources, and
-that it can still reach public destinations and ping the WireGuard server address the
-GnosisVPN client verifies the tunnel with (see the README's "Firewall" section).
-
-It first greps `wggvpn.conf.tpl`, the `gnosisvpn-server` Dockerfile and `entrypoint.sh` for
-the `wg-hooks.sh` wiring and the early FORWARD DROP, then runs `test/firewall-check.sh` in a
-throwaway privileged `alpine` container: a veth pair named `wggvpn` stands in for the
-WireGuard interface, a dummy `eth1` as the default route stands in for the uplink, and a
-separate network namespace stands in for the client, so the probes are really forwarded
-across `wggvpn` by the namespace `wg-hooks.sh` configured - and thrown away afterwards. No
-DAppNode install and no WireGuard handshake involved, so it runs anywhere Docker does.
-
-```sh
+just test-firewall         # or: test/firewall.sh
 just test-firewall-image   # or: FIREWALL_TEST_IMAGE=<image> test/firewall.sh
 ```
 
-Runs the same checks inside the built `gnosisvpn-server` image instead, against its own
-`/app/wg-hooks.sh` and its own `bash`, `iproute2` and `iptables`, with nothing mounted or
-installed. This proves the image actually ships what the hook needs. Building it pulls the
-`gnosis_vpn-server` base image from GnosisVPN's registry, so it needs credentials for that
-registry (`gcloud auth configure-docker europe-west3-docker.pkg.dev`).
+Checks that a VPN client can't reach local resources, but can still reach public destinations
+and ping the tunnel-check address (see the README's "Firewall" section). Both commands:
+
+1. Grep `wggvpn.conf.tpl`, the `gnosisvpn-server` Dockerfile and `entrypoint.sh` for the
+   `wg-hooks.sh` wiring and the early FORWARD DROP.
+2. Run `test/firewall-check.sh` in a throwaway privileged container. A veth pair named `wggvpn`
+   stands in for WireGuard, a dummy `eth1` for the uplink, and a separate network namespace for
+   the client, so the probes really go through the rules. Only Docker is needed.
+
+`test-firewall` uses `alpine` with the repo's `wg-hooks.sh` mounted in. `test-firewall-image`
+uses the built `gnosisvpn-server` image with nothing mounted or installed, which proves the
+image ships the hook and its tools (`bash`, `iproute2`, `iptables`). Building that image needs
+access to GnosisVPN's registry: `gcloud auth configure-docker europe-west3-docker.pkg.dev`.
 
 ## Validating hoprd.cfg.yaml.tpl on its own
 
