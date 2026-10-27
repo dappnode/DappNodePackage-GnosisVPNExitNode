@@ -43,6 +43,23 @@ and renders it into `hoprd.cfg.yaml.tpl` - see that file and `docker-compose.yml
 resolve, so `docker-compose.local.yml` overrides `GNOSISVPN_SERVER_HOST` to plain
 `gnosisvpn-server`, which plain `docker compose` resolves via the project's default network.
 
+## Checking the firewall
+
+```sh
+just test-firewall   # or: test/firewall.sh
+```
+
+Checks that a VPN client tunnelled through this exit node can't reach local resources, and
+that it can still reach public destinations and ping the WireGuard server address the
+GnosisVPN client verifies the tunnel with (see the README's "Firewall" section).
+
+It first greps `wggvpn.conf.tpl` and the `gnosisvpn-server` Dockerfile for the `wg-hooks.sh`
+wiring, then runs `test/firewall-check.sh` in a throwaway privileged `alpine` container: a veth
+pair named `wggvpn` stands in for the WireGuard interface and a separate network namespace
+stands in for the client, so the probes are really forwarded across `wggvpn` by the namespace
+`wg-hooks.sh` configured - and thrown away afterwards. No DAppNode install and no WireGuard
+handshake involved, so it runs anywhere Docker does.
+
 ## Validating hoprd.cfg.yaml.tpl on its own
 
 ```sh

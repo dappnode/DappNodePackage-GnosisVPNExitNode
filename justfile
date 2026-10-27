@@ -17,3 +17,7 @@ local-logs:
 # Re-validate hoprd.cfg.yaml against the real hoprd 4.0.3 config parser
 validate-config:
     ./test/validate-hoprd-config.sh
+
+# Check that VPN clients can't reach local resources through the exit node
+test-firewall:
+    ./test/firewall.sh

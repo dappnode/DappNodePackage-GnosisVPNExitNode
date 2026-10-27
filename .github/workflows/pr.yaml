@@ -14,6 +14,9 @@ jobs:
       - name: Validate hoprd.cfg.yaml.tpl
         run: ./test/validate-hoprd-config.sh
 
+      - name: Check that VPN clients can't reach local resources
+        run: ./test/firewall.sh
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 

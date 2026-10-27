@@ -22,6 +22,55 @@ Runs a [GnosisVPN](https://vpn.gnosis.eth.limo) exit node on DAppNode: a HOPR no
   across installs, and isn't guaranteed stable across a `gnosisvpn-server` recreate - see
   "Known limitations" below.
 
+## Firewall
+
+`gnosisvpn-server` runs in its own network namespace, so that namespace is where the exit
+node's forwarding policy lives: [`gnosisvpn-server/wg-hooks.sh`](gnosisvpn-server/wg-hooks.sh),
+run by `wg-quick`'s `PostUp`/`PreDown` (rendered into `wggvpn.conf` by `entrypoint.sh`). It
+ports the `wg-hooks.sh` + `iptables.rules` pair from the exit-node appliance image
+(`gnosis_vpn-exit_os`), which can't be reused as-is because a DAppNode package never sees the
+host's network namespace (see below).
+
+Without it, a VPN client's traffic is masqueraded to this container's address and then takes
+the same path as the container's own egress traffic: to the DAppNode host, to the dappmanager,
+to every other package on `dncore_network`, and to the LAN behind the host. A VPN client is an
+untrusted third party, so only publicly addressed destinations are allowed through:
+
+- FORWARD policy is DROP, and client traffic jumps to `GVPN_PRIVATE` before any rule can
+  accept it. That chain drops RFC1918, CGNAT, link-local, loopback, `0.0.0.0/8`,
+  multicast/reserved, DAppNode's `dncore_network` (`172.33.0.0/16` - deliberately *not* in
+  RFC1918, so the RFC1918 entries alone would leave the dappmanager reachable) and the subnet
+  this container is attached to, whatever DAppNode assigns it. Only `wggvpn -> <uplink>` is
+  accepted, and only behind that jump; the return leg is `RELATED,ESTABLISHED` only, so the
+  exit node can't originate inbound connections into WireGuard clients.
+- Traffic from `wggvpn` reaches INPUT for one packet only: the ICMP echo the GnosisVPN client
+  sends to the WireGuard server address to verify the tunnel (`connection.ping`, default
+  `10.128.0.1`). Everything else from the tunnel is dropped, so a VPN client can't reach the
+  control API on port 8000 or anything else this container listens on.
+- `up` removes its own rules first, so restarting the interface never stacks duplicates, and
+  `down` leaves FORWARD at DROP, so a hook that failed half way can't leave the namespace open.
+
+Not covered, matching the appliance:
+
+- IPv6. `gnosis_vpn-server` adds every peer as `allowed-ips <ipv4>/32` (its `add_peer` takes
+  an `Ipv4Addr`) and `wggvpn` has only an IPv4 address, so WireGuard's own cryptokey routing
+  drops an IPv6 packet from a client before this namespace sees it. The appliance also drops
+  IPv6 in `ip6tables` as a second line of defence; here the guarantee is that upstream
+  configuration, so it is worth re-checking when `gnosis_vpn-server` gains IPv6 support
+  ([gnosis/gnosis_vpn-client#330](https://github.com/gnosis/gnosis_vpn-client/issues/330)).
+- The host's own public IPv4 address (the router's WAN address). The appliance drops it from
+  an ipset it fills with HTTPS-observed addresses, so a client can't reach the router, or a
+  LAN host hairpinned through it, via that address. Porting that would mean the same external
+  lookup from inside the container, so it isn't: a packet to the WAN address is a public
+  destination, passes the ranges above, and is stopped only if the router refuses to hairpin
+  it. The host's *private* addresses are covered above; its WAN address is not.
+- The FireHOL blocklist and the per-peer traffic shaping the appliance adds. They aren't
+  about reaching local resources, so they aren't ported.
+
+`just test-firewall` checks the rules themselves, including that a client behind `wggvpn`
+still reaches public destinations and the tunnel-verification ping (see
+[`test/README.md`](test/README.md)).
+
 ## Known limitations vs. production
 
 A regular (non-core) DAppNode package can't get `network_mode: host` or a custom docker
