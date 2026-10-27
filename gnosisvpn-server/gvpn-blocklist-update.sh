@@ -72,7 +72,7 @@ trap cleanup EXIT
 parse_feed() {
   sed -e 's/[;#].*$//' -e 's/[[:space:]]//g' \
     | grep -E '^((25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])\.){3}(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(/(3[0-2]|[12][0-9]|[0-9]))?$' \
-    | awk -F '[./]' 'NF == 4 || $5 >= 8 || $1 >= 224' || true
+    | awk -F '[./]' 'NF == 4 || $5 >= 8 || $0 == "224.0.0.0/3"' || true
 }
 
 # Whether a parsed entry count is within the acceptable [MIN_ENTRIES, IPSET_MAXELEM]
@@ -169,6 +169,9 @@ populate_from_cache() {
 
 refresh() {
   local all url feed_failed=0 feed_success=0 count
+  # --loop calls this repeatedly and never reaches the EXIT trap, so each run
+  # clears the previous run's directory.
+  [[ -n "${TMP_DIR}" ]] && rm -rf "${TMP_DIR}"
   TMP_DIR=$(mktemp -d)
   all="${TMP_DIR}/all.cidr"
   : >"${all}"

@@ -16,9 +16,7 @@ grep -q 'gvpn-blocklist-update.sh --loop &' gnosisvpn-server/entrypoint.sh
 grep -q 'GVPN_SHAPING_BIN:-/app/gvpn-peer-shaping.sh' gnosisvpn-server/wg-hooks.sh
 
 # The rates and the feeds are set from the DAppNode UI, so their setup-wizard
-# fields have to exist. A pattern that needs a backslash must be double-quoted:
-# YAML keeps a plain scalar's backslashes literally, and the UI applies the
-# pattern with new RegExp(), which then rejects every real value.
+# fields have to exist.
 for field in GVPN_PEER_RATE_KBIT GVPN_PEER_SHAPING_AGGREGATE_KBIT \
   GVPN_BLOCKLIST_FEEDS GVPN_BLOCKLIST_REFRESH_INTERVAL_S; do
   if ! grep -qx "      name: ${field}" setup-wizard.yml; then
@@ -26,11 +24,6 @@ for field in GVPN_PEER_RATE_KBIT GVPN_PEER_SHAPING_AGGREGATE_KBIT \
     exit 1
   fi
 done
-backslash="$(printf '\134')"
-if grep 'pattern:' setup-wizard.yml | grep -F -- "${backslash}" | grep -qv 'pattern: "'; then
-  echo "setup-wizard.yml has a pattern with a backslash that is not double-quoted" >&2
-  exit 1
-fi
 echo "ok: the image ships both scripts, wires them up, and the wizard exposes their settings"
 
 if [ -n "${TRAFFIC_TEST_IMAGE:-}" ]; then

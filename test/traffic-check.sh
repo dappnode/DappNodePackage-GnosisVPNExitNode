@@ -262,6 +262,29 @@ expect_entries 0 "the set is empty after a flush"
 "${BLOCKLIST}" --from-cache >/dev/null 2>&1 || true
 expect_entries 3 "--from-cache reloads the cached list"
 
+# --- short prefixes are accepted for the 224/3 bogon range only ---------------
+# ipset normalizes a network, so 224.0.0.0/1 would block 128.0.0.0/1, and a /0
+# fails the whole restore.
+parsed="$(printf '%s\n' 224.0.0.0/3 224.0.0.0/1 240.0.0.0/2 240.0.0.0/0 0.0.0.0/1 1.2.3.0/24 \
+  | bash -c "source ${BLOCKLIST}; parse_feed" || true)"
+if [ "${parsed}" = "$(printf '%s\n' 224.0.0.0/3 1.2.3.0/24)" ]; then
+  pass "the parser keeps 224.0.0.0/3 and drops every other prefix shorter than /8"
+else
+  fail "the parser kept: ${parsed//$'\n'/ }"
+fi
+
+# --- repeated refreshes in one process leave no temp files --------------------
+# --loop never exits, so its EXIT trap cannot be what cleans up after a refresh.
+tmp_root="$(mktemp -d)"
+TMPDIR="${tmp_root}" bash -c "source ${BLOCKLIST}; refresh; refresh" >/dev/null 2>&1 || true
+leftover="$(find "${tmp_root}" -mindepth 1 | wc -l)"
+if [ "${leftover}" -eq 0 ]; then
+  pass "each refresh removes its temp files"
+else
+  fail "${leftover} temp file(s) left behind by two refreshes"
+fi
+rm -rf "${tmp_root}"
+
 # --- a client still reaches public destinations ------------------------------
 zero_counters
 if probe_from_client "${PUBLIC_HOST}"; then
