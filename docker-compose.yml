@@ -47,6 +47,7 @@ services:
       # renders it into hoprd.cfg.yaml.tpl - see entrypoint.sh and README.
       GNOSISVPN_SERVER_HOST: "gnosisvpn-server.gnosisvpn-exit-node.public.dappnode"
     restart: unless-stopped
+    stop_grace_period: 60s
     depends_on:
       - gnosisvpn-server
     deploy:
