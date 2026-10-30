@@ -53,7 +53,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 4G
   gnosisvpn-server:
     # Do not set image field here, it will be set automatically by the sdk.
     build:
