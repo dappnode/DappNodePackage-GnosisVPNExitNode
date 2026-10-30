@@ -6,7 +6,7 @@ services:
       context: .
       args:
         # see https://console.cloud.google.com/artifacts/docker/hoprassociation/europe-west3/docker-images/hoprd
-        UPSTREAM_VERSION: 5.0.0-rc.1-commit.7d90171
+        UPSTREAM_VERSION: 5.0.2-pr.232
     ports:
       - "1422:1422/udp"
       - "1422:1422/tcp"
@@ -65,6 +65,13 @@ services:
       WIREGUARD_CIDR: "10.128.0.0/24"
       WIREGUARD_MTU: "1420"
       MAX_SLOTS: "4"
+      # Per-peer traffic shaping, in kbit/s: each client is capped at the per-peer rate and
+      # all clients together at the aggregate. See README's "Per-peer shaping".
+      GVPN_PEER_RATE_KBIT: "10000"
+      GVPN_PEER_SHAPING_AGGREGATE_KBIT: "25000"
+      # Space-separated threat feeds for the blocklist. The last known-good list is cached
+      # in the gnosisvpn-data volume. See README's "Blocklist".
+      GVPN_BLOCKLIST_FEEDS: "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"
     restart: unless-stopped
     deploy:
       resources:
