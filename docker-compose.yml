@@ -47,13 +47,9 @@ services:
       # renders it into hoprd.cfg.yaml.tpl - see entrypoint.sh and README.
       GNOSISVPN_SERVER_HOST: "gnosisvpn-server.gnosisvpn-exit-node.public.dappnode"
     restart: unless-stopped
-    stop_grace_period: 60s
+    # stop_grace_period: 60s
     depends_on:
       - gnosisvpn-server
-    deploy:
-      resources:
-        limits:
-          memory: 4G
   gnosisvpn-server:
     # Do not set image field here, it will be set automatically by the sdk.
     build:
