@@ -12,4 +12,5 @@ ADD entrypoint.sh /bin/entrypoint.sh
 
 RUN chmod +rx /bin/entrypoint.sh
 
-ENTRYPOINT ["/bin/entrypoint.sh"]
+# tini (shipped in the upstream image) stays PID 1 so SIGTERM reaches hoprd on stop/update.
+ENTRYPOINT ["/bin/tini", "--", "/bin/entrypoint.sh"]
