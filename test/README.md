@@ -43,6 +43,54 @@ and renders it into `hoprd.cfg.yaml.tpl` - see that file and `docker-compose.yml
 resolve, so `docker-compose.local.yml` overrides `GNOSISVPN_SERVER_HOST` to plain
 `gnosisvpn-server`, which plain `docker compose` resolves via the project's default network.
 
+## Checking the firewall
+
+```sh
+just test-firewall         # or: test/firewall.sh
+just test-firewall-image   # or: FIREWALL_TEST_IMAGE=<image> test/firewall.sh
+```
+
+Checks that a VPN client can't reach local resources, but can still reach public destinations
+and ping the tunnel-check address (see the README's "Firewall" section). Both commands:
+
+1. Grep `wggvpn.conf.tpl`, the `gnosisvpn-server` Dockerfile and `entrypoint.sh` for the
+   `wg-hooks.sh` wiring and the early FORWARD DROP.
+2. Run `test/firewall-check.sh` in a throwaway privileged container. A veth pair named `wggvpn`
+   stands in for WireGuard, a dummy `eth1` for the uplink, and a separate network namespace for
+   the client, so the probes really go through the rules. Only Docker is needed.
+
+`test-firewall` uses `alpine` with the repo's `wg-hooks.sh` mounted in. `test-firewall-image`
+uses the built `gnosisvpn-server` image with nothing mounted or installed, which proves the
+image ships the hook and its tools (`bash`, `iproute2`, `iptables`). Building that image needs
+access to GnosisVPN's registry: `gcloud auth configure-docker europe-west3-docker.pkg.dev`.
+
+## Checking the blocklist and shaping
+
+```sh
+just test-traffic         # or: test/traffic.sh
+just test-traffic-image   # or: TRAFFIC_TEST_IMAGE=<image> test/traffic.sh
+```
+
+Checks the two things the exit node does to forwarded traffic besides isolating it (see the
+README's "Blocklist" and "Per-peer shaping" sections). Both commands:
+
+1. Grep the `gnosisvpn-server` Dockerfile, `entrypoint.sh` and `wg-hooks.sh` for the wiring: the
+   image ships both scripts, the entrypoint loads the cached list and starts the refresher, and
+   the hook runs the shaping.
+2. Run `test/traffic-check.sh` in a throwaway privileged container. On top of the firewall
+   suite's veth and client namespace there is a third namespace standing in for a public host
+   that answers pings, so "the client still reaches the internet" is a real reply rather than a
+   rule counter. Feeds are `file://` URLs, so no network is needed.
+
+It covers the blocklist parser and the fail-open paths (a feed below the minimum entry count, an
+unreachable feed, reloading from the cache), that a blocklisted destination really is dropped
+while a public one is not, and that every peer slot has an HTB class in both directions with
+packets actually counted in it.
+
+`test-traffic` uses `alpine` with the repo's scripts mounted in. `test-traffic-image` uses the
+built image with nothing mounted or installed, which proves it ships `ipset` and `curl` as well
+as the scripts.
+
 ## Validating hoprd.cfg.yaml.tpl on its own
 
 ```sh
