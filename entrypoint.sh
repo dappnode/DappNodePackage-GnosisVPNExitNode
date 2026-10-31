@@ -52,19 +52,4 @@ config_contents="${config_contents%x}"
 printf '%s' "${config_contents//__GNOSISVPN_SERVER_IP__/${gnosisvpn_server_ip}}" >"${RENDERED_CONFIG}"
 export HOPRD_CONFIGURATION_FILE_PATH="${RENDERED_CONFIG}"
 
-# gnosisvpn-server's address can change when its container is recreated (see README).
-# Re-resolve it periodically; on a change, stop hoprd (after the exec below, $$ is
-# hoprd's PID) so the restart policy re-renders the config with the new address.
-(
-  while sleep 30; do
-    ip="$(dig +short "${GNOSISVPN_SERVER_HOST}" A | head -n1 || true)"
-    if [ -n "${ip}" ] && [ "${ip}" != "${gnosisvpn_server_ip}" ]; then
-      echo "entrypoint.sh: gnosisvpn-server moved ${gnosisvpn_server_ip} -> ${ip}; restarting hoprd" >&2
-      kill -TERM "$$"
-      exit 0
-    fi
-  done
-) &
-
-# exec, so tini's SIGTERM reaches hoprd itself instead of stopping at this shell.
-exec env ${ADDITIONAL_ENVIRONMENT_VARS:-} /bin/docker-entrypoint.sh ${ADDITIONAL_CMDLINE_ARGS:-}
+env ${ADDITIONAL_ENVIRONMENT_VARS:-} /bin/docker-entrypoint.sh ${ADDITIONAL_CMDLINE_ARGS:-}
