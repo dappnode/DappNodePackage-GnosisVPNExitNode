@@ -21,7 +21,7 @@ services:
       - "seccomp:unconfined"
     environment:
       RUST_LOG: info
-      HOPRD_CONFIGURATION_FILE_PATH: /app/hoprd/conf/hoprd.cfg.yaml
+      HOPRD_CONFIGURATION_FILE_PATH: /app/hoprd/conf/hoprd.custom.cfg.yaml
       HOPRD_IDENTITY: /app/hoprd/conf/hopr.id
       HOPRD_DATA: /app/hoprd/data
       HOPRD_HOST: "127.0.0.1:9091"
@@ -47,7 +47,10 @@ services:
       # renders it into hoprd.cfg.yaml.tpl - see entrypoint.sh and README.
       GNOSISVPN_SERVER_HOST: "gnosisvpn-server.gnosisvpn-exit-node.public.dappnode"
     restart: unless-stopped
-    # stop_grace_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 8GB
     depends_on:
       - gnosisvpn-server
   gnosisvpn-server:
