@@ -15,6 +15,19 @@ wg_address="${o1}.${o2}.${o3}.$((o4 + 1))"
 wg_start="${o1}.${o2}.${o3}.$((o4 + 2))"
 wg_end="${o1}.${o2}.${o3}.$((o4 + 1 + max_slots))"
 
+# The pool has to stay inside the CIDR's last /24: per-peer shaping steers packets by
+# the last octet only, and .255 is the broadcast address.
+if (( o4 + 1 + max_slots > 254 )); then
+  echo "gnosisvpn-server: FATAL: WIREGUARD_CIDR ${WIREGUARD_CIDR} with MAX_SLOTS=${max_slots} needs last octets .$((o4 + 1))-.$((o4 + 1 + max_slots)), past .254" >&2
+  exit 1
+fi
+
+# Consumed by wg-hooks.sh through gvpn-peer-shaping.sh, which wg-quick runs with this
+# process's environment (gnosis_vpn-server spawns wg-quick as a plain child process).
+export GVPN_PEER_SUBNET_PREFIX="${o1}.${o2}.${o3}"
+export GVPN_PEER_MIN_OCTET=$((o4 + 2))
+export GVPN_PEER_MAX_OCTET=$((o4 + 1 + max_slots))
+
 # gnosis_vpn-server's own wrapper.sh generates a WireGuard key when PRIVATE_KEY isn't set,
 # but doesn't persist it - a fresh key on every restart would break peer registration.
 # Persist it in the /data volume instead, generating it once here.
@@ -52,6 +65,18 @@ current_ip_forward="$(cat /proc/sys/net/ipv4/ip_forward 2>/dev/null || echo unkn
 if [ "${current_ip_forward}" != "1" ]; then
   echo "gnosisvpn-server: WARNING: net.ipv4.ip_forward is '${current_ip_forward}', not '1', and this container cannot set it itself. VPN client traffic will not reach the internet until it's enabled on the DAppNode host." >&2
 fi
+
+# wg-quick brings wggvpn up (with its peers) before PostUp runs wg-hooks.sh, so close
+# FORWARD now; wg-hooks.sh then opens only the public path. If this fails, the container
+# fails: the exit node must not start without it.
+iptables -P FORWARD DROP
+
+# The blocklist set lives in this container's namespace, so its cache lives in the /data
+# volume and the refresh runs as a child process: a container has no timer. Loading the
+# cache first (no network) filters the first forwarded packet with the last known-good
+# list; the refresher then replaces it from the feeds in the background, failing open.
+/app/gvpn-blocklist-update.sh --from-cache
+/app/gvpn-blocklist-update.sh --loop &
 
 # Run the binary directly as PID 1 (not via the image's wrapper.sh, which launches it as a
 # child process) so Docker's SIGTERM on `stop`/`down` reaches gnosis_vpn-server itself. It
