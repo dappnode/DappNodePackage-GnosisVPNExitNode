@@ -78,6 +78,11 @@ iptables -P FORWARD DROP
 /app/gvpn-blocklist-update.sh --from-cache
 /app/gvpn-blocklist-update.sh --loop &
 
+# The fixed address node forwards to. Without it nothing reaches the server, so a failed
+# claim stops the container.
+/app/gvpn-fixed-address.sh
+/app/gvpn-fixed-address.sh --loop &
+
 # Run the binary directly as PID 1 (not via the image's wrapper.sh, which launches it as a
 # child process) so Docker's SIGTERM on `stop`/`down` reaches gnosis_vpn-server itself. It
 # has its own graceful-shutdown handling, which is what actually runs wg-quick down/PreDown.

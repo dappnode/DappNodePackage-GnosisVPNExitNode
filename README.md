@@ -12,15 +12,26 @@ Runs a [GnosisVPN](https://vpn.gnosis.eth.limo) exit node on DAppNode: a HOPR no
   same `dncore_network` every DAppNode package service gets attached to (a non-core package
   can't get `network_mode: "service:node"` here either - DAppNode's `dappmanager` forces that
   `networks:` attachment onto every service regardless, and Docker Compose rejects
-  `network_mode` and `networks` together on the same service). Since `hoprd`'s
-  `session_ip_forwarding` needs a literal `ip:port` (hostnames are rejected by hoprd's own
-  config parser) and a non-core package can't pin a static IP on `dncore_network` either (see
-  below), `node`'s `entrypoint.sh` resolves `gnosisvpn-server`'s DAppNode DNS alias
-  (`gnosisvpn-server.<dnpName>.dappnode`) to its current IP at boot and renders that into
-  `hoprd.cfg.yaml.tpl` before `hoprd` starts (see `GNOSISVPN_SERVER_HOST` in
-  `docker-compose.yml`). Unlike the loopback address this replaced, this IP is **not** fixed
-  across installs, and isn't guaranteed stable across a `gnosisvpn-server` recreate - see
-  "Known limitations" below.
+  `network_mode` and `networks` together on the same service). `node` reaches it at
+  **`172.33.255.254`** (`:51820` WireGuard, `:8000` control API) - see "Fixed address".
+
+## Fixed address
+
+`gnosisvpn-server`'s address is `172.33.255.254` on every install and across recreates.
+
+DAppNode doesn't let a package pin a container IP: `dappmanager` strips `ipv4_address` and
+only allows its own networks. So
+[`gvpn-fixed-address.sh`](gnosisvpn-server/gvpn-fixed-address.sh) adds the address to
+`gnosisvpn-server`'s `dncore_network` interface itself. It is inside `dncore_network`'s
+`172.33.0.0/16`, so `node` reaches it directly. The script:
+
+- refuses the address if anything else already answers for it,
+- announces it, so `node` stops using a previous container's MAC,
+- claims it again within 30s if a network reconnect drops it.
+
+Limits: Docker doesn't know about the address, but it hands out the lowest free one first, so
+it only reaches `172.33.255.254` on a nearly full network. If DAppNode retires
+`dncore_network`, the address must move to `dnprivate_network` (`10.20.0.0/24`).
 
 ## Firewall
 
@@ -154,19 +165,10 @@ explicit firewall rule.
 For the same reason, this exit node's internal `gnosisvpn-server` address is **not** the
 fixed `172.30.0.1` a production, Ansible-managed exit node presents (a fixed docker bridge
 gateway, identical across that whole fleet because every host pins the same subnet -
-something this package structurally can't do). Worse, unlike a first attempt at working
-around this (sharing `node`'s network namespace to get a fixed loopback address - see git
-history), the address DAppNode assigns `gnosisvpn-server` on `dncore_network` is **not fixed
-across installs either**: it's a normal dynamic bridge IP, different on every install and not
-guaranteed stable across a `gnosisvpn-server` recreate on the same install (though it survives
-an ordinary restart). `entrypoint.sh` logs it on every `node` boot
-(`gnosisvpn-server resolved to ...`), so it's discoverable per-install from DAppNode's log
-viewer, but there's currently no single documented value a `gnosis_vpn-client` can be
-pre-configured with the way `172.30.0.1` works for the production fleet - a client would need
-to be told this specific exit node's current address out of band. The proper fix is upstream,
-in `hoprd`: an in-progress change to have `hoprd` inform a connecting client of the correct
-target itself, so clients don't need this hardcoded at all. Until that lands, this is a real
-gap for this package's exit nodes specifically.
+something this package structurally can't do). It is `172.33.255.254` instead, so a
+`gnosis_vpn-client` needs its `[connection.bridge]`/`[connection.wg]` `target` set to
+`172.33.255.254:8000`/`172.33.255.254:51820`. That setting is global to the client. The proper
+fix is upstream: `hoprd` telling a connecting client the target itself.
 
 ## Local testing
 

@@ -8,48 +8,69 @@ if [ -z "${HOPRD_BLOKLI_URL:-}" ]; then
   unset HOPRD_BLOKLI_URL
 fi
 
+PLACEHOLDER=__GNOSISVPN_SERVER_IP__
+# gnosisvpn-server claims this address itself; must match ADDRESS in
+# gnosisvpn-server/gvpn-fixed-address.sh.
+GNOSISVPN_SERVER_IP=172.33.255.254
+# The setup wizard's upload. Only read, never written: older versions rendered here, and the
+# next boot took that output for an upload.
 CUSTOM_CONFIG=/app/hoprd/conf/hoprd.custom.cfg.yaml
 TEMPLATE_CONFIG=/app/hoprd.cfg.yaml.tpl
-RENDERED_CONFIG="${HOPRD_CONFIGURATION_FILE_PATH:?HOPRD_CONFIGURATION_FILE_PATH must be set}"
+# What hoprd reads. Hardcoded so it can't be pointed back at CUSTOM_CONFIG.
+GENERATED_CONFIG=/app/hoprd/conf/hoprd.generated.cfg.yaml
+
+# This image has no sed. The `echo x` / `%x` keeps the trailing newline `$(cat)` strips.
+read_config() {
+  local contents
+  contents="$(cat "$1"; echo x)"
+  printf '%s' "${contents%x}"
+}
+
+# A config without comments and blank lines.
+config_body() {
+  local line body=""
+  while IFS= read -r line; do
+    line="${line%%#*}"
+    [ -z "${line//[[:space:]]/}" ] && continue
+    body+="${line}"$'\n'
+  done <<<"$1"
+  printf '%s' "${body}"
+}
+
+# A config without comments, blank lines and addresses, so a config an older version rendered
+# from the template compares equal to the template.
+config_fingerprint() {
+  local config
+  config="$(config_body "$1")"
+  config="${config//${PLACEHOLDER}/<server-address>}"
+  while [[ "${config}" =~ ([0-9]{1,3}\.){3}[0-9]{1,3} ]]; do
+    config="${config/"${BASH_REMATCH[0]}"/<server-address>}"
+  done
+  printf '%s' "${config}"
+}
+
+template_contents="$(read_config "${TEMPLATE_CONFIG}")"
+source_contents="${template_contents}"
 
 if [ -s "${CUSTOM_CONFIG}" ]; then
-  # A config was uploaded via the setup wizard's "Custom HOPR node configuration file"
-  # field - use it as-is (modulo the same __GNOSISVPN_SERVER_IP__ substitution below), so we
-  # never clobber a deliberate override otherwise.
-  echo "entrypoint.sh: using uploaded ${CUSTOM_CONFIG}"
-  SOURCE_CONFIG="${CUSTOM_CONFIG}"
-else
-  SOURCE_CONFIG="${TEMPLATE_CONFIG}"
+  custom_contents="$(read_config "${CUSTOM_CONFIG}")"
+  if [ "$(config_fingerprint "${custom_contents}")" = "$(config_fingerprint "${template_contents}")" ]; then
+    # An older version's output: using it would keep its stale address.
+    echo "entrypoint.sh: ignoring ${CUSTOM_CONFIG}: an older version of this package rendered it, it is not an upload." >&2
+  else
+    echo "entrypoint.sh: using uploaded ${CUSTOM_CONFIG}"
+    source_contents="${custom_contents}"
+    case "$(config_body "${custom_contents}")" in
+    *"${PLACEHOLDER}"* | *"${GNOSISVPN_SERVER_IP}"*) ;;
+    *)
+      echo "entrypoint.sh: WARNING: ${CUSTOM_CONFIG} does not forward to gnosisvpn-server at ${GNOSISVPN_SERVER_IP}; add ${GNOSISVPN_SERVER_IP}:51820 and ${GNOSISVPN_SERVER_IP}:8000 to session_ip_forwarding.target_allow_list." >&2
+      ;;
+    esac
+  fi
 fi
 
-: "${GNOSISVPN_SERVER_HOST:?GNOSISVPN_SERVER_HOST must be set}"
-echo "entrypoint.sh: resolving gnosisvpn-server (${GNOSISVPN_SERVER_HOST})..."
-gnosisvpn_server_ip=""
-for _ in $(seq 1 30); do
-  gnosisvpn_server_ip="$(dig +short "${GNOSISVPN_SERVER_HOST}" A | head -n1)"
-  [ -n "${gnosisvpn_server_ip}" ] && break
-  sleep 1
-done
-if [ -z "${gnosisvpn_server_ip}" ]; then
-  echo "entrypoint.sh: FATAL: could not resolve ${GNOSISVPN_SERVER_HOST} after 30s - is gnosisvpn-server running?" >&2
-  exit 1
-fi
-# Logged deliberately: this is currently the only way to find gnosisvpn-server's address,
-# which a connecting gnosis_vpn-client needs as its session target - see README. hoprd is
-# expected to gain a way to tell clients this directly (tracked upstream), making this
-# per-install manual lookup unnecessary.
-echo "entrypoint.sh: gnosisvpn-server resolved to ${gnosisvpn_server_ip}"
+printf '%s' "${source_contents//${PLACEHOLDER}/${GNOSISVPN_SERVER_IP}}" >"${GENERATED_CONFIG}"
+export HOPRD_CONFIGURATION_FILE_PATH="${GENERATED_CONFIG}"
 
-# __GNOSISVPN_SERVER_IP__ is substituted the same way regardless of which file above won -
-# see setup-wizard.yml's "Custom HOPR node configuration file" field, which documents using
-# the same placeholder in an uploaded config too, instead of requiring the uploader to
-# hardcode an address that isn't fixed and that hoprd can't resolve itself.
-# No `sed` in this image (it's a minimal coreutils/util-linux build, no busybox either) - do
-# the substitution with bash builtins instead. The `; echo x` / `%x` dance preserves a
-# trailing newline that a bare `$(cat ...)` would otherwise strip.
-config_contents="$(cat "${SOURCE_CONFIG}"; echo x)"
-config_contents="${config_contents%x}"
-printf '%s' "${config_contents//__GNOSISVPN_SERVER_IP__/${gnosisvpn_server_ip}}" >"${RENDERED_CONFIG}"
-export HOPRD_CONFIGURATION_FILE_PATH="${RENDERED_CONFIG}"
-
-env ${ADDITIONAL_ENVIRONMENT_VARS:-} /bin/docker-entrypoint.sh ${ADDITIONAL_CMDLINE_ARGS:-}
+# exec, so tini's SIGTERM reaches hoprd.
+exec env ${ADDITIONAL_ENVIRONMENT_VARS:-} /bin/docker-entrypoint.sh ${ADDITIONAL_CMDLINE_ARGS:-}

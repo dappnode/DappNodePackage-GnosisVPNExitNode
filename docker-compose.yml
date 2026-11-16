@@ -21,7 +21,8 @@ services:
       - "seccomp:unconfined"
     environment:
       RUST_LOG: info
-      HOPRD_CONFIGURATION_FILE_PATH: /app/hoprd/conf/hoprd.custom.cfg.yaml
+      # Where entrypoint.sh renders the config. Not the upload path hoprd.custom.cfg.yaml.
+      HOPRD_CONFIGURATION_FILE_PATH: /app/hoprd/conf/hoprd.generated.cfg.yaml
       HOPRD_IDENTITY: /app/hoprd/conf/hopr.id
       HOPRD_DATA: /app/hoprd/data
       HOPRD_HOST: "127.0.0.1:9091"
@@ -40,12 +41,6 @@ services:
       HOPRD_NAT: "true"
       ADDITIONAL_CMDLINE_ARGS: ""
       ADDITIONAL_ENVIRONMENT_VARS: ""
-      # DAppNode's dappmanager forces every service (this one included) onto dncore_network
-      # with a DNS alias of <serviceName>.<shortDnpName>.dappnode - see getShortUniqueDnp in
-      # DNP_DAPPMANAGER. hoprd's session_ip_forwarding needs a literal ip:port (hostnames are
-      # rejected by hoprd's own config parser), so entrypoint.sh resolves this at boot and
-      # renders it into hoprd.cfg.yaml.tpl - see entrypoint.sh and README.
-      GNOSISVPN_SERVER_HOST: "gnosisvpn-server.gnosisvpn-exit-node.public.dappnode"
     restart: unless-stopped
     deploy:
       resources:

@@ -18,6 +18,19 @@ local-logs:
 validate-config:
     ./test/validate-hoprd-config.sh
 
+# Check that node's entrypoint renders gnosisvpn-server's fixed address
+test-entrypoint:
+    ./test/entrypoint.sh
+
+# Check that node reaches gnosisvpn-server at its fixed address
+test-fixed-address:
+    ./test/fixed-address.sh
+
+# Run the same fixed-address checks with the built gnosisvpn-server image
+test-fixed-address-image:
+    docker build -t gnosisvpn-server:fixed-address-test gnosisvpn-server
+    FIXED_ADDRESS_TEST_IMAGE=gnosisvpn-server:fixed-address-test ./test/fixed-address.sh
+
 # Check that VPN clients can't reach local resources through the exit node
 test-firewall:
     ./test/firewall.sh

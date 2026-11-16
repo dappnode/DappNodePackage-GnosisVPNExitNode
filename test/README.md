@@ -36,12 +36,36 @@ and its `iptables` rules live inside that container, not on your real machine - 
 local-down` (or `docker compose down`) tears it down along with both containers, nothing to
 clean up on the host afterward.
 
-`node`'s `entrypoint.sh` resolves `gnosisvpn-server`'s address at boot (hoprd's
-`session_ip_forwarding.target_allow_list` requires a literal ip:port, hostnames are rejected)
-and renders it into `hoprd.cfg.yaml.tpl` - see that file and `docker-compose.yml`'s
-`GNOSISVPN_SERVER_HOST`. Outside a real DAppNode install there's no DAppNode DNS alias to
-resolve, so `docker-compose.local.yml` overrides `GNOSISVPN_SERVER_HOST` to plain
-`gnosisvpn-server`, which plain `docker compose` resolves via the project's default network.
+The stack's network uses `dncore_network`'s subnet, `172.33.0.0/16`, because
+`gnosisvpn-server`'s fixed address `172.33.255.254` is in it (see the README's "Fixed
+address"). It can't run on a machine that already has a network on that subnet, such as a
+DAppNode.
+
+## Checking node's rendered config
+
+```sh
+just test-entrypoint   # or: test/entrypoint.sh
+```
+
+Checks that [`entrypoint.sh`](../entrypoint.sh) renders `gnosisvpn-server`'s fixed address
+without any network, ignores a config an older version rendered at the upload path, uses a
+real upload and warns when it doesn't forward to the fixed address, and `exec`s into hoprd.
+Only Docker is needed.
+
+## Checking the fixed address
+
+```sh
+just test-fixed-address         # or: test/fixed-address.sh
+just test-fixed-address-image   # or: FIXED_ADDRESS_TEST_IMAGE=<image> test/fixed-address.sh
+```
+
+Checks [`gvpn-fixed-address.sh`](../gnosisvpn-server/gvpn-fixed-address.sh) on networks laid
+out like DAppNode's, with a stand-in `node` without extra capabilities: `node` reaches the
+server at `172.33.255.254:8000`, also after the server is recreated at another Docker address
+or reconnected to the network, and a second claimant backs off.
+
+`test-fixed-address-image` runs the built image's own entrypoint, so `node` talks to the real
+control API. Like the local stack, neither runs on a machine with a `172.33.0.0/16` network.
 
 ## Checking the firewall
 
@@ -98,7 +122,7 @@ just validate-config   # or: test/validate-hoprd-config.sh
 ```
 
 Runs hoprd's own config validator (`hoprd-cfg --validate-args`) against `hoprd.cfg.yaml.tpl`
-(rendered with a dummy IP first), without starting anything. Pulls whatever
+(rendered with the fixed address first), without starting anything. Pulls whatever
 `UPSTREAM_VERSION` currently resolves to so this can start failing if an upstream release changes the schema, independently
 of any change here.
 

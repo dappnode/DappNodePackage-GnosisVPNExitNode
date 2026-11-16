@@ -3,10 +3,8 @@
 # (`hoprd-cfg --validate-args`), the same check the container's entrypoint effectively runs
 # (via hoprd itself) before launching. Keep HOPRD_IMAGE's tag in sync with docker-compose.yml's
 # UPSTREAM_VERSION - both deliberately track hoprd's `latest` release (no version/digest pin),
-# so if one is ever re-pinned to a specific version, re-pin the other too. Renders the
-# template with a dummy IP first - entrypoint.sh does the same substitution with
-# gnosisvpn-server's real resolved IP - since hoprd's parser requires a literal ip:port and
-# won't accept the __GNOSISVPN_SERVER_IP__ placeholder as-is.
+# so if one is ever re-pinned to a specific version, re-pin the other too. Replaces the
+# placeholder with gnosisvpn-server's fixed address first, as entrypoint.sh does.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -15,7 +13,7 @@ HOPRD_IMAGE="europe-west3-docker.pkg.dev/hoprassociation/docker-images/hoprd:${H
 
 RENDERED_CONFIG="$(mktemp)"
 trap 'rm -f "${RENDERED_CONFIG}"' EXIT
-sed "s|__GNOSISVPN_SERVER_IP__|127.0.0.1|g" hoprd.cfg.yaml.tpl >"${RENDERED_CONFIG}"
+sed "s|__GNOSISVPN_SERVER_IP__|172.33.255.254|g" hoprd.cfg.yaml.tpl >"${RENDERED_CONFIG}"
 docker pull "${HOPRD_IMAGE}" >/dev/null
 docker run --rm \
   -v "${RENDERED_CONFIG}:/app/hoprd.cfg.yaml:ro" \
@@ -31,4 +29,4 @@ docker run --rm \
   --host 1.2.3.4:9091 \
   --configurationFilePath /app/hoprd.cfg.yaml
 
-echo "hoprd.cfg.yaml.tpl is a valid config for ${HOPRD_IMAGE} (rendered with a dummy IP)."
+echo "hoprd.cfg.yaml.tpl is a valid config for ${HOPRD_IMAGE}."

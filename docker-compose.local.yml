@@ -11,7 +11,12 @@ services:
       HOPRD_PASSWORD: ${HOPRD_PASSWORD}
       HOPRD_API_TOKEN: ${HOPRD_API_TOKEN}
       HOPRD_HOST: ${HOPRD_HOST:-127.0.0.1:9091}
-      GNOSISVPN_SERVER_HOST: gnosisvpn-server
   gnosisvpn-server:
     environment:
       WIREGUARD_CIDR: ${WIREGUARD_CIDR:-10.128.0.0/24}
+networks:
+  # dncore_network's subnet, which gnosisvpn-server's fixed address 172.33.255.254 is in.
+  default:
+    ipam:
+      config:
+        - subnet: 172.33.0.0/16
