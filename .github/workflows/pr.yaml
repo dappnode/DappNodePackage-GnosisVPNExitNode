@@ -14,7 +14,7 @@ jobs:
       - name: Validate hoprd.cfg.yaml.tpl
         run: ./test/validate-hoprd-config.sh
 
-      - name: Check that node renders gnosisvpn-server's fixed address
+      - name: Check node's entrypoint and key storage settings
         run: ./test/entrypoint.sh
 
       - name: Check that gnosisvpn-server claims its fixed address

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Checks node's entrypoint.sh. See test/README.md.
+# Checks node's entrypoint.sh and the settings its stored keys depend on. See test/README.md.
 set -euo pipefail
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 
@@ -30,6 +30,19 @@ expect_not_contains() { # $1 haystack, $2 needle, $3 what
   *) pass "$3" ;;
   esac
 }
+has_line() { # $1 file, $2 whole line as an extended regex, $3 what
+  if grep -qxE "$2" "$1"; then pass "$3"; else fail "$3 (no line matching '$2' in $1)"; fi
+}
+
+echo "### settings the identity depends on"
+# Installs keep their identity across updates only while these stay the same. Changing one
+# gives them a new identity, or one hoprd can't decrypt.
+has_line docker-compose.yml ' *HOPRD_IDENTITY: "?/app/hoprd/conf/hopr\.id"?' \
+  "identity stays at /app/hoprd/conf/hopr.id"
+has_line docker-compose.yml ' *- "?node-conf:/app/hoprd/conf"?' "on the node-conf volume"
+has_line docker-compose.yml ' *HOPRD_PASSWORD:.*' "its password stays in HOPRD_PASSWORD"
+has_line setup-wizard.yml ' *name: HOPRD_PASSWORD' "which the setup wizard sets"
+echo
 
 cleanup() {
   docker volume rm "${CONF_VOLUME}" >/dev/null 2>&1 || true

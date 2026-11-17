@@ -18,7 +18,7 @@ local-logs:
 validate-config:
     ./test/validate-hoprd-config.sh
 
-# Check that node's entrypoint renders gnosisvpn-server's fixed address
+# Check node's entrypoint and the settings its stored keys depend on
 test-entrypoint:
     ./test/entrypoint.sh
 

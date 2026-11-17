@@ -50,7 +50,9 @@ just test-entrypoint   # or: test/entrypoint.sh
 Checks that [`entrypoint.sh`](../entrypoint.sh) renders `gnosisvpn-server`'s fixed address
 without any network, ignores a config an older version rendered at the upload path, uses a
 real upload and warns when it doesn't forward to the fixed address, and `exec`s into hoprd.
-Only Docker is needed.
+It also checks that the identity path, its `node-conf` volume and the `HOPRD_PASSWORD` variable
+stay the same, since changing any of them loses existing installs' identity on update. Only
+Docker is needed.
 
 ## Checking the fixed address
 
