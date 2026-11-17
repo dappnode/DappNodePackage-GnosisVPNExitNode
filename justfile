@@ -14,7 +14,7 @@ local-down:
 local-logs:
     docker compose -f docker-compose.yml -f docker-compose.local.yml --env-file .env.local logs -f
 
-# Re-validate hoprd.cfg.yaml against the real hoprd 4.0.3 config parser
+# Re-validate hoprd.cfg.yaml.tpl against the real hoprd config parser
 validate-config:
     ./test/validate-hoprd-config.sh
 
