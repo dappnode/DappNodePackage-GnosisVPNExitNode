@@ -1,5 +1,9 @@
 ---
 blokli_url: https://blokli-piz-palu.dev.hoprnet.link
+hopr:
+  network:
+    # Must fit twice in hoprd's 60s loopback window; the 1m default doesn't, and hoprd exits.
+    probe_interval: 30s
 session_ip_forwarding:
   target_allow_list:
     # hoprd needs a literal ip:port. entrypoint.sh replaces the placeholder with
