@@ -193,6 +193,13 @@ sed 's|^blokli_url: \(.*\)|blokli_url:\n  \1|' hoprd.cfg.yaml.tpl | write_volume
 out="$(run_entrypoint)"
 expect_contains "${out}" "no blokli_url for the PIX pool" "stops with a clear error"
 expect_not_contains "${out}" "stub: pid" "does not start hoprd"
+
+echo
+echo "### a real upload with a space before blokli_url's colon"
+sed 's|^blokli_url: |blokli_url : |' hoprd.cfg.yaml.tpl | write_volume_file hoprd.custom.cfg.yaml
+out="$(run_entrypoint)"
+expect_contains "${out}" "no blokli_url for the PIX pool" "stops with a clear error"
+expect_not_contains "${out}" "stub: pid" "does not start hoprd"
 remove_upload
 
 echo

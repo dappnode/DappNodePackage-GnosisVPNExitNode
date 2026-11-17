@@ -92,7 +92,7 @@ fi
 # A URL set through ADDITIONAL_ENVIRONMENT_VARS or ADDITIONAL_CMDLINE_ARGS reaches only hoprd.
 blokli_url="${HOPRD_BLOKLI_URL:-$(config_blokli_url "${source_contents}")}"
 if [ -z "${blokli_url}" ] && [[ "$(config_body "${source_contents}")" == *"${BLOKLI_PLACEHOLDER}"* ]]; then
-  echo "entrypoint.sh: no blokli_url for the PIX pool: write the top-level blokli_url on one line, or set HOPRD_BLOKLI_URL." >&2
+  echo "entrypoint.sh: no blokli_url for the PIX pool: write the top-level blokli_url as \"blokli_url: <url>\" on one line, or set HOPRD_BLOKLI_URL." >&2
   exit 1
 fi
 rendered="${source_contents//${PLACEHOLDER}/${GNOSISVPN_SERVER_IP}}"
