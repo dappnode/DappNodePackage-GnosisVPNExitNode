@@ -4,12 +4,29 @@ hopr:
   network:
     # Must fit twice in hoprd's 60s loopback window; the 1m default doesn't, and hoprd exits.
     probe_interval: 30s
+    pix:
+      num_ssa_parts: 4096
+      ssa_part_size: 32
+      additional_shares: 79
+      max_ssas_per_request: 3
+    incoming_session_pix:
+      enforce_pix: false
+      max_ssa_delivery_time: 20s
+      max_deposit_wait: 3m
+      max_recovery_time: 2h
+      ssas_per_request: 1
 session_ip_forwarding:
   target_allow_list:
     # hoprd needs a literal ip:port. entrypoint.sh replaces the placeholder with
     # gnosisvpn-server's fixed address, 172.33.255.254.
     - "__GNOSISVPN_SERVER_IP__:51820"    # gnosisvpn-server's WireGuard interface
     - "__GNOSISVPN_SERVER_IP__:8000"     # gnosisvpn-server's control endpoint
+  # First match wins: only WireGuard sessions pay.
+  session_admission_rules:
+    - target: "udp:__GNOSISVPN_SERVER_IP__:51820"
+      enforce_pix: true
+    - target: "*"
+      enforce_pix: false
 strategy:
   allow_recursive: false
   execution_interval: 15s
@@ -72,3 +89,23 @@ strategy:
         selector: default
     - AutoRedeeming:
         minimum_redeem_ticket_value: "1 wei wxHOPR"
+    - Pix:
+        strategy:
+          price_per_byte: "9 000 000 000 wei wxHOPR"
+          max_ssa_allocation: 3 wxHOPR
+          max_spend_per_window: 6 wxHOPR
+          spend_window: 1day
+          deposit_buffer_period: 500ms
+          withdrawal_buffer_period: 500ms
+          # PIX state is sealed with the identity's password and kept on the node-data
+          # volume. Losing either loses the funds not yet swept.
+          pix_recovery_password_env: HOPRD_PASSWORD
+          pix_recovery_db_path: /app/hoprd/data/pix-recovery.redb
+        pool:
+          # The pool doesn't read HOPRD_BLOKLI_URL; entrypoint.sh fills in the node's URL.
+          blokli_url: __BLOKLI_URL__
+          submission: relayer
+          relayer_url: https://api.curvy.box
+          token: 2
+          max_deposit_tracking_time: 3m 20s
+          state_path: /app/hoprd/data/curvy-pix.redb

@@ -48,11 +48,11 @@ just test-entrypoint   # or: test/entrypoint.sh
 ```
 
 Checks that [`entrypoint.sh`](../entrypoint.sh) renders `gnosisvpn-server`'s fixed address
-without any network, ignores a config an older version rendered at the upload path, uses a
-real upload and warns when it doesn't forward to the fixed address, and `exec`s into hoprd.
-It also checks that the identity path, its `node-conf` volume and the `HOPRD_PASSWORD` variable
-stay the same, since changing any of them loses existing installs' identity on update. Only
-Docker is needed.
+and the PIX pool's Blokli URL without any network, ignores a config an older version rendered
+at the upload path, uses a real upload and warns when it doesn't forward to the fixed address,
+and `exec`s into hoprd. It also checks that the identity and PIX state paths, their volumes and
+the `HOPRD_PASSWORD` variable stay the same, since changing any of them loses existing
+installs' identity or PIX funds on update. Only Docker is needed.
 
 ## Checking the fixed address
 
@@ -124,7 +124,7 @@ just validate-config   # or: test/validate-hoprd-config.sh
 ```
 
 Runs hoprd's own config validator (`hoprd-cfg --validate-args`) against `hoprd.cfg.yaml.tpl`
-(rendered with the fixed address first), without starting anything. Pulls whatever
+(with its placeholders filled in first), without starting anything. Pulls whatever
 `UPSTREAM_VERSION` currently resolves to so this can start failing if an upstream release changes the schema, independently
 of any change here.
 

@@ -53,8 +53,9 @@ fields:
       `hoprd.cfg.yaml.tpl` (jura-prod GnosisVPN exit-node fleet defaults) entirely - including
       its `session_ip_forwarding` entries, which must list gnosisvpn-server at
       `172.33.255.254:51820` and `172.33.255.254:8000` (`__GNOSISVPN_SERVER_IP__` works in
-      place of the address). Uploading here takes priority over the auto-generated config on
-      every start.
+      place of the address), and its `Pix` strategy's `pool.blokli_url`, which should be
+      `__BLOKLI_URL__`. Uploading here takes priority over the auto-generated config on every
+      start.
     secret: false
 
   - id: HOPRD_SAFE_ADDRESS

@@ -1,7 +1,4 @@
 ARG UPSTREAM_VERSION
-# hoprd-pix-test, not hoprd: the plain image enables no PIX pool feature, so it inherits
-# hopr-lib's default `pix-bjj` and announces BabyJubJub as its PIX curve suite.
-# Change back to `hoprd` once Curvy pool is ready
 FROM europe-west3-docker.pkg.dev/hoprassociation/docker-images/hoprd:${UPSTREAM_VERSION}
 
 # not used at the moment, but might be useful in the future

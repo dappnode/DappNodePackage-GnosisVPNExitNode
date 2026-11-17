@@ -12,6 +12,7 @@ PLACEHOLDER=__GNOSISVPN_SERVER_IP__
 # gnosisvpn-server claims this address itself; must match ADDRESS in
 # gnosisvpn-server/gvpn-fixed-address.sh.
 GNOSISVPN_SERVER_IP=172.33.255.254
+BLOKLI_PLACEHOLDER=__BLOKLI_URL__
 # The setup wizard's upload. Only read, never written: older versions rendered here, and the
 # next boot took that output for an upload.
 CUSTOM_CONFIG=/app/hoprd/conf/hoprd.custom.cfg.yaml
@@ -49,6 +50,17 @@ rendered_by_older_version() {
   return 1
 }
 
+# A config's top-level blokli_url.
+config_blokli_url() {
+  local line
+  while IFS= read -r line; do
+    if [[ "${line}" =~ ^blokli_url:[[:space:]]*\"?([^\"#[:space:]]+) ]]; then
+      printf '%s' "${BASH_REMATCH[1]}"
+      return
+    fi
+  done <<<"$1"
+}
+
 template_contents="$(read_config "${TEMPLATE_CONFIG}")"
 source_contents="${template_contents}"
 
@@ -60,16 +72,31 @@ if [ -s "${CUSTOM_CONFIG}" ]; then
   else
     echo "entrypoint.sh: using uploaded ${CUSTOM_CONFIG}"
     source_contents="${custom_contents}"
-    case "$(config_body "${custom_contents}")" in
+    custom_body="$(config_body "${custom_contents}")"
+    case "${custom_body}" in
     *"${PLACEHOLDER}"* | *"${GNOSISVPN_SERVER_IP}"*) ;;
     *)
       echo "entrypoint.sh: WARNING: ${CUSTOM_CONFIG} does not forward to gnosisvpn-server at ${GNOSISVPN_SERVER_IP}; add ${GNOSISVPN_SERVER_IP}:51820 and ${GNOSISVPN_SERVER_IP}:8000 to session_ip_forwarding.target_allow_list." >&2
       ;;
     esac
+    case "${custom_body}" in
+    *"${BLOKLI_PLACEHOLDER}"*) ;;
+    *)
+      echo "entrypoint.sh: WARNING: ${CUSTOM_CONFIG} does not set the Pix strategy's pool.blokli_url to ${BLOKLI_PLACEHOLDER}, so PIX payments may not work; see hoprd.cfg.yaml.tpl." >&2
+      ;;
+    esac
   fi
 fi
 
-printf '%s' "${source_contents//${PLACEHOLDER}/${GNOSISVPN_SERVER_IP}}" >"${GENERATED_CONFIG}"
+# hoprd prefers HOPRD_BLOKLI_URL to the config's URL; the PIX pool only reads the config.
+# A URL set through ADDITIONAL_ENVIRONMENT_VARS or ADDITIONAL_CMDLINE_ARGS reaches only hoprd.
+blokli_url="${HOPRD_BLOKLI_URL:-$(config_blokli_url "${source_contents}")}"
+if [ -z "${blokli_url}" ] && [[ "$(config_body "${source_contents}")" == *"${BLOKLI_PLACEHOLDER}"* ]]; then
+  echo "entrypoint.sh: no blokli_url for the PIX pool: write the top-level blokli_url on one line, or set HOPRD_BLOKLI_URL." >&2
+  exit 1
+fi
+rendered="${source_contents//${PLACEHOLDER}/${GNOSISVPN_SERVER_IP}}"
+printf '%s' "${rendered//${BLOKLI_PLACEHOLDER}/"${blokli_url}"}" >"${GENERATED_CONFIG}"
 export HOPRD_CONFIGURATION_FILE_PATH="${GENERATED_CONFIG}"
 
 # exec, so tini's SIGTERM reaches hoprd.
