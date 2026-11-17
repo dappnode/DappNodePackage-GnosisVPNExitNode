@@ -37,16 +37,16 @@ config_body() {
   printf '%s' "${body}"
 }
 
-# A config without comments, blank lines and addresses, so a config an older version rendered
-# from the template compares equal to the template.
-config_fingerprint() {
-  local config
-  config="$(config_body "$1")"
-  config="${config//${PLACEHOLDER}/<server-address>}"
-  while [[ "${config}" =~ ([0-9]{1,3}\.){3}[0-9]{1,3} ]]; do
-    config="${config/"${BASH_REMATCH[0]}"/<server-address>}"
-  done
-  printf '%s' "${config}"
+# Whether a config is an older version's output: every template they rendered has this
+# WireGuard entry, which they filled in with gnosisvpn-server's dynamic address.
+rendered_by_older_version() {
+  local line wg_entry="^ *- \"([0-9]{1,3}(\\.[0-9]{1,3}){3}):51820\" +# gnosisvpn-server's WireGuard interface"
+  while IFS= read -r line; do
+    if [[ "${line}" =~ ${wg_entry} ]] && [ "${BASH_REMATCH[1]}" != "${GNOSISVPN_SERVER_IP}" ]; then
+      return 0
+    fi
+  done <<<"$1"
+  return 1
 }
 
 template_contents="$(read_config "${TEMPLATE_CONFIG}")"
@@ -54,9 +54,9 @@ source_contents="${template_contents}"
 
 if [ -s "${CUSTOM_CONFIG}" ]; then
   custom_contents="$(read_config "${CUSTOM_CONFIG}")"
-  if [ "$(config_fingerprint "${custom_contents}")" = "$(config_fingerprint "${template_contents}")" ]; then
-    # An older version's output: using it would keep its stale address.
-    echo "entrypoint.sh: ignoring ${CUSTOM_CONFIG}: an older version of this package rendered it, it is not an upload." >&2
+  if rendered_by_older_version "${custom_contents}"; then
+    # Using it would keep its stale address and miss newer template settings.
+    echo "entrypoint.sh: ignoring ${CUSTOM_CONFIG}: an older version of this package rendered it. Upload your config again if it was a custom one." >&2
   else
     echo "entrypoint.sh: using uploaded ${CUSTOM_CONFIG}"
     source_contents="${custom_contents}"

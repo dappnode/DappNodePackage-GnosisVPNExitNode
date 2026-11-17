@@ -96,6 +96,20 @@ else
 fi
 
 echo
+echo "### leftover from an older release whose template had other settings"
+# Releases before the probe_interval setting rendered their template without it.
+sed -e '/^hopr:/,/probe_interval/d' -e "s|__GNOSISVPN_SERVER_IP__|${STALE_ADDRESS}|g" \
+  hoprd.cfg.yaml.tpl | write_volume_file hoprd.custom.cfg.yaml
+out="$(run_entrypoint)"
+rendered="$(volume_file hoprd.generated.cfg.yaml)"
+expect_contains "${out}" "ignoring ${UPLOAD}" "ignores it"
+if [ "${rendered}" = "$(sed "s|__GNOSISVPN_SERVER_IP__|${SERVER_ADDRESS}|g" hoprd.cfg.yaml.tpl)" ]; then
+  pass "renders the current template instead"
+else
+  fail "did not render the current template: $(diff <(echo "${rendered}") <(sed "s|__GNOSISVPN_SERVER_IP__|${SERVER_ADDRESS}|g" hoprd.cfg.yaml.tpl) | head -n 5)"
+fi
+
+echo
 echo "### a real upload using the placeholder"
 sed 's|^blokli_url: .*|blokli_url: https://uploaded.invalid|' hoprd.cfg.yaml.tpl |
   write_volume_file hoprd.custom.cfg.yaml
@@ -117,7 +131,9 @@ expect_not_contains "${out}" "WARNING" "does not warn"
 
 echo
 echo "### a real upload that hardcodes another address"
+# Without the template's comment on the WireGuard entry, which marks older versions' output.
 sed -e 's|^blokli_url: .*|blokli_url: https://uploaded.invalid|' \
+  -e "s|__GNOSISVPN_SERVER_IP__:51820\".*|${STALE_ADDRESS}:51820\"|" \
   -e "s|__GNOSISVPN_SERVER_IP__|${STALE_ADDRESS}|g" hoprd.cfg.yaml.tpl |
   write_volume_file hoprd.custom.cfg.yaml
 out="$(run_entrypoint)"
