@@ -37,9 +37,9 @@ fields:
     description: |-
       URL of the Blokli provider used by the node to connect to the blockchain.
 
-      Leave empty to use the value already shipped in `hoprd.cfg.yaml.tpl` (the same one used by
-      HOPR Association's own GnosisVPN exit-node fleet). Only set this if you need to point
-      the node at a different Blokli endpoint.
+      Leave empty to use the package's default, the hosted Blokli for the piz-palu network
+      (`blokli.piz-palu.gnosisvpn.io`). Only set this if you need to point the node, and its
+      PIX payments, at a different Blokli endpoint.
     secret: false
 
   - id: CONFIG
@@ -51,14 +51,11 @@ fields:
     description: |-
       Upload a custom configuration file for the HOPR node, replacing the shipped
       `hoprd.cfg.yaml.tpl` (jura-prod GnosisVPN exit-node fleet defaults) entirely - including
-      its `session_ip_forwarding` entries. gnosisvpn-server's address isn't fixed (it can
-      differ per install and across a gnosisvpn-server recreate) and hoprd can't resolve it
-      itself (its config parser requires a literal ip:port, not a hostname), so if you
-      reference gnosisvpn-server here, use the literal placeholder `__GNOSISVPN_SERVER_IP__`
-      in place of its address (e.g. `__GNOSISVPN_SERVER_IP__:51820`) - the node substitutes
-      it with gnosisvpn-server's actual current address on every start, the same way it does
-      for the shipped config. Uploading here takes priority over the auto-generated config on
-      every start.
+      its `session_ip_forwarding` entries, which must list gnosisvpn-server at
+      `172.33.255.254:51820` and `172.33.255.254:8000` (`__GNOSISVPN_SERVER_IP__` works in
+      place of the address), and its `Pix` strategy's `pool.blokli_url`, which should be
+      `__BLOKLI_URL__`. Uploading here takes priority over the auto-generated config on every
+      start.
     secret: false
 
   - id: HOPRD_SAFE_ADDRESS
@@ -146,3 +143,64 @@ fields:
     secret: false
     pattern: ^([1-9]|[1-9]\d|1\d{2}|2[0-4]\d|25[0-2])$
     patternErrorMessage: Must be a number between 1 and 252
+
+  - id: GVPN_PEER_RATE_KBIT
+    target:
+      type: environment
+      name: GVPN_PEER_RATE_KBIT
+      service: gnosisvpn-server
+    title: Per-client bandwidth limit (advanced)
+    required: false
+    description: |-
+      Each connected VPN client is limited to this rate in each direction, in kbit/s. Shaping
+      queues packets instead of dropping them, so TCP slows down smoothly at the limit. Leave
+      empty to use the default (`10000`, i.e. 10 Mbit/s).
+    secret: false
+    pattern: ^[1-9][0-9]*$
+    patternErrorMessage: Must be a positive whole number of kbit/s, e.g. 10000
+
+  - id: GVPN_PEER_SHAPING_AGGREGATE_KBIT
+    target:
+      type: environment
+      name: GVPN_PEER_SHAPING_AGGREGATE_KBIT
+      service: gnosisvpn-server
+    title: Total bandwidth limit for all clients (advanced)
+    required: false
+    description: |-
+      All connected clients together are limited to this rate, in kbit/s. Keep it below your
+      uplink speed so the exit node cannot saturate your connection. Leave empty to use the
+      default (`25000`, i.e. 25 Mbit/s).
+    secret: false
+    pattern: ^[1-9][0-9]*$
+    patternErrorMessage: Must be a positive whole number of kbit/s, e.g. 25000
+
+  - id: GVPN_BLOCKLIST_FEEDS
+    target:
+      type: environment
+      name: GVPN_BLOCKLIST_FEEDS
+      service: gnosisvpn-server
+    title: Blocklist feeds (advanced)
+    required: false
+    description: |-
+      Space-separated URLs of IPv4 threat feeds, each listing one address or CIDR per line.
+      Traffic from VPN clients to these addresses, and from them back to clients, is dropped.
+      Leave empty to use the default: FireHOL level1, the same feed GnosisVPN's own exit nodes
+      use.
+    secret: false
+    pattern: ^(https?://[^ ]+)( (https?://[^ ]+))*$
+    patternErrorMessage: Must be one or more space-separated http(s) URLs
+
+  - id: GVPN_BLOCKLIST_REFRESH_INTERVAL_S
+    target:
+      type: environment
+      name: GVPN_BLOCKLIST_REFRESH_INTERVAL_S
+      service: gnosisvpn-server
+    title: Blocklist refresh interval (advanced)
+    required: false
+    description: |-
+      How often the blocklist feeds are fetched, in seconds, plus up to one hour of jitter.
+      Leave empty to use the default (`43200`, twice a day). A refresh that fails, or that
+      parses to an implausible number of entries, keeps the previous list.
+    secret: false
+    pattern: ^[1-9][0-9]*$
+    patternErrorMessage: Must be a positive whole number of seconds, e.g. 43200

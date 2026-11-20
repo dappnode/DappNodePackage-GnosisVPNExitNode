@@ -1,7 +1,7 @@
 {
   "name": "gnosisvpn-exit-node.public.dappnode.eth",
   "version": "1.0.0",
-  "upstreamVersion": "4.0.3",
+  "upstreamVersion": "5.0.4",
   "description": "Run a GnosisVPN exit node: a HOPR node (hoprd) that relays privacy-preserving traffic through the HOPR mixnet, paired with gnosis_vpn-server, which terminates that traffic on a local WireGuard interface and forwards it to the internet. gnosis_vpn-server's own release is tracked separately (see README) since it isn't the SDK-tracked upstream.",
   "type": "service",
   "architectures": [

@@ -6,7 +6,7 @@ services:
       context: .
       args:
         # see https://console.cloud.google.com/artifacts/docker/hoprassociation/europe-west3/docker-images/hoprd
-        UPSTREAM_VERSION: 5.0.0-rc.1-commit.7d90171
+        UPSTREAM_VERSION: 5.0.4
     ports:
       - "1422:1422/udp"
       - "1422:1422/tcp"
@@ -21,7 +21,8 @@ services:
       - "seccomp:unconfined"
     environment:
       RUST_LOG: info
-      HOPRD_CONFIGURATION_FILE_PATH: /app/hoprd/conf/hoprd.cfg.yaml
+      # Where entrypoint.sh renders the config. Not the upload path hoprd.custom.cfg.yaml.
+      HOPRD_CONFIGURATION_FILE_PATH: /app/hoprd/conf/hoprd.generated.cfg.yaml
       HOPRD_IDENTITY: /app/hoprd/conf/hopr.id
       HOPRD_DATA: /app/hoprd/data
       HOPRD_HOST: "127.0.0.1:9091"
@@ -33,26 +34,20 @@ services:
       HOPRD_MODULE_ADDRESS: "0x0000000000000000000000000000000000000000"
       HOPRD_PASSWORD: ""
       HOPRD_API_TOKEN: ""
-      # Set this to override the value in hoprd.cfg.yaml.tpl
+      # Set this to override the package's default Blokli URL
       HOPRD_BLOKLI_URL: ""
       # Not exposed by `hoprd --help` in 4.0.3, but still read directly from the
       # environment rather than as a registered CLI flag.
       HOPRD_NAT: "true"
       ADDITIONAL_CMDLINE_ARGS: ""
       ADDITIONAL_ENVIRONMENT_VARS: ""
-      # DAppNode's dappmanager forces every service (this one included) onto dncore_network
-      # with a DNS alias of <serviceName>.<shortDnpName>.dappnode - see getShortUniqueDnp in
-      # DNP_DAPPMANAGER. hoprd's session_ip_forwarding needs a literal ip:port (hostnames are
-      # rejected by hoprd's own config parser), so entrypoint.sh resolves this at boot and
-      # renders it into hoprd.cfg.yaml.tpl - see entrypoint.sh and README.
-      GNOSISVPN_SERVER_HOST: "gnosisvpn-server.gnosisvpn-exit-node.public.dappnode"
     restart: unless-stopped
-    depends_on:
-      - gnosisvpn-server
     deploy:
       resources:
         limits:
-          memory: 2G
+          memory: 8GB
+    depends_on:
+      - gnosisvpn-server
   gnosisvpn-server:
     # Do not set image field here, it will be set automatically by the sdk.
     build:
@@ -65,6 +60,13 @@ services:
       WIREGUARD_CIDR: "10.128.0.0/24"
       WIREGUARD_MTU: "1420"
       MAX_SLOTS: "4"
+      # Per-peer traffic shaping, in kbit/s: each client is capped at the per-peer rate and
+      # all clients together at the aggregate. See README's "Per-peer shaping".
+      GVPN_PEER_RATE_KBIT: "10000"
+      GVPN_PEER_SHAPING_AGGREGATE_KBIT: "25000"
+      # Space-separated threat feeds for the blocklist. The last known-good list is cached
+      # in the gnosisvpn-data volume. See README's "Blocklist".
+      GVPN_BLOCKLIST_FEEDS: "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"
     restart: unless-stopped
     deploy:
       resources:
