@@ -37,9 +37,9 @@ fields:
     description: |-
       URL of the Blokli provider used by the node to connect to the blockchain.
 
-      Leave empty to use the value already shipped in `hoprd.cfg.yaml.tpl` (the same one used by
-      HOPR Association's own GnosisVPN exit-node fleet). Only set this if you need to point
-      the node at a different Blokli endpoint.
+      Leave empty to use the package's default, the hosted Blokli for the piz-palu network
+      (`blokli.piz-palu.gnosisvpn.io`). Only set this if you need to point the node, and its
+      PIX payments, at a different Blokli endpoint.
     secret: false
 
   - id: CONFIG

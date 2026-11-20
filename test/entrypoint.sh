@@ -10,7 +10,12 @@ IMAGE=gnosisvpn-entrypoint-test
 CONF_VOLUME=gnosisvpn-entrypoint-test-conf
 STUB=test/entrypoint-stub.sh
 UPLOAD=/app/hoprd/conf/hoprd.custom.cfg.yaml
-TEMPLATE_BLOKLI_URL="$(sed -n 's|^blokli_url: ||p' hoprd.cfg.yaml.tpl)"
+# The Blokli URL entrypoint.sh uses when neither the upload nor HOPRD_BLOKLI_URL sets one.
+DEFAULT_BLOKLI_URL="$(sed -n 's|^DEFAULT_BLOKLI_URL=||p' entrypoint.sh)"
+if [ -z "${DEFAULT_BLOKLI_URL}" ]; then
+  echo "entrypoint.sh sets no DEFAULT_BLOKLI_URL" >&2
+  exit 1
+fi
 BUILD_DIR=""
 
 failures=0
@@ -30,6 +35,9 @@ expect_not_contains() { # $1 haystack, $2 needle, $3 what
   *"$2"*) fail "$3 (unexpected '$2')" ;;
   *) pass "$3" ;;
   esac
+}
+expect_line() { # $1 haystack, $2 whole line, $3 what
+  if grep -qxF -- "$2" <<<"$1"; then pass "$3"; else fail "$3 (no line '$2')"; fi
 }
 has_line() { # $1 file, $2 whole line as an extended regex, $3 what
   if grep -qxE "$2" "$1"; then pass "$3"; else fail "$3 (no line matching '$2' in $1)"; fi
@@ -81,7 +89,7 @@ run_entrypoint() {
 # The template as entrypoint.sh renders it.
 render_template() {
   sed -e "s|__GNOSISVPN_SERVER_IP__|${SERVER_ADDRESS}|g" \
-    -e "s|__BLOKLI_URL__|${TEMPLATE_BLOKLI_URL}|g" hoprd.cfg.yaml.tpl
+    -e "s|__BLOKLI_URL__|${DEFAULT_BLOKLI_URL}|g" hoprd.cfg.yaml.tpl
 }
 
 volume_file() { # $1 = file name inside /app/hoprd/conf, empty when absent
@@ -101,8 +109,10 @@ out="$(run_entrypoint)"
 rendered="$(volume_file hoprd.generated.cfg.yaml)"
 expect_contains "${rendered}" "- \"${SERVER_ADDRESS}:51820\"" "renders gnosisvpn-server's WireGuard address"
 expect_contains "${rendered}" "- \"${SERVER_ADDRESS}:8000\"" "renders gnosisvpn-server's control address"
-expect_contains "${rendered}" "  blokli_url: ${TEMPLATE_BLOKLI_URL}" "gives the PIX pool the node's Blokli URL"
+expect_line "${rendered}" "blokli_url: ${DEFAULT_BLOKLI_URL}" "gives hoprd's config the default Blokli URL"
+expect_contains "${rendered}" "  blokli_url: ${DEFAULT_BLOKLI_URL}" "gives the PIX pool the same Blokli URL"
 expect_not_contains "${rendered}" "__" "leaves no placeholder behind"
+default_rendered="$(volume_file hoprd.generated.cfg.yaml; echo x)"
 expect_contains "${out}" "stub: pid=1 ppid=0" "execs into hoprd instead of forking"
 if volume_has hoprd.custom.cfg.yaml; then
   fail "wrote to the setup wizard's upload path"
@@ -143,6 +153,16 @@ echo "### HOPRD_BLOKLI_URL from the setup wizard"
 out="$(run_entrypoint -e HOPRD_BLOKLI_URL=https://wizard.invalid)"
 rendered="$(volume_file hoprd.generated.cfg.yaml)"
 expect_contains "${rendered}" "  blokli_url: https://wizard.invalid" "gives it to the PIX pool"
+expect_line "${rendered}" "blokli_url: https://wizard.invalid" "gives it to hoprd's config"
+expect_not_contains "${rendered}" "${DEFAULT_BLOKLI_URL}" "drops the default Blokli URL"
+# Byte for byte, trailing newlines included.
+rendered="$(volume_file hoprd.generated.cfg.yaml; echo x)"
+expected="${default_rendered//"${DEFAULT_BLOKLI_URL}"/https://wizard.invalid}"
+if [ "${rendered}" = "${expected}" ]; then
+  pass "changes nothing else"
+else
+  fail "changed more than the Blokli URLs: $(diff <(echo "${rendered}") <(echo "${expected}") | head -n 5)"
+fi
 
 echo
 echo "### a real upload using the placeholder"
@@ -157,12 +177,32 @@ expect_contains "${rendered}" "- \"${SERVER_ADDRESS}:51820\"" "replaces its plac
 expect_not_contains "${out}" "WARNING" "does not warn"
 
 echo
+echo "### a real upload with HOPRD_BLOKLI_URL from the setup wizard"
+out="$(run_entrypoint -e HOPRD_BLOKLI_URL=https://wizard.invalid)"
+rendered="$(volume_file hoprd.generated.cfg.yaml)"
+expect_contains "${out}" "using uploaded ${UPLOAD}" "uses it"
+expect_line "${rendered}" "blokli_url: https://wizard.invalid" "gives the wizard's URL to hoprd's config"
+expect_line "${rendered}" "          blokli_url: https://wizard.invalid" "and to the PIX pool"
+expect_not_contains "${rendered}" "https://uploaded.invalid" "drops the upload's Blokli URL"
+
+echo
 echo "### a real upload that writes the fixed address out"
 sed -e 's|^blokli_url: .*|blokli_url: https://uploaded.invalid|' \
   -e "s|__GNOSISVPN_SERVER_IP__|${SERVER_ADDRESS}|g" hoprd.cfg.yaml.tpl |
   write_volume_file hoprd.custom.cfg.yaml
 out="$(run_entrypoint)"
 expect_contains "${out}" "using uploaded ${UPLOAD}" "uses it"
+expect_not_contains "${out}" "WARNING" "does not warn"
+
+echo
+echo "### a real upload that leaves the placeholder in place"
+sed "s|__GNOSISVPN_SERVER_IP__|${SERVER_ADDRESS}|g" hoprd.cfg.yaml.tpl |
+  write_volume_file hoprd.custom.cfg.yaml
+out="$(run_entrypoint)"
+rendered="$(volume_file hoprd.generated.cfg.yaml)"
+expect_contains "${out}" "using uploaded ${UPLOAD}" "uses it"
+expect_line "${rendered}" "blokli_url: ${DEFAULT_BLOKLI_URL}" "gives hoprd's config the default Blokli URL"
+expect_line "${rendered}" "          blokli_url: ${DEFAULT_BLOKLI_URL}" "and the PIX pool the same"
 expect_not_contains "${out}" "WARNING" "does not warn"
 
 echo

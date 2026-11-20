@@ -47,12 +47,13 @@ DAppNode.
 just test-entrypoint   # or: test/entrypoint.sh
 ```
 
-Checks that [`entrypoint.sh`](../entrypoint.sh) renders `gnosisvpn-server`'s fixed address
-and the PIX pool's Blokli URL without any network, ignores a config an older version rendered
-at the upload path, uses a real upload and warns when it doesn't forward to the fixed address,
-and `exec`s into hoprd. It also checks that the identity and PIX state paths, their volumes and
-the `HOPRD_PASSWORD` variable stay the same, since changing any of them loses existing
-installs' identity or PIX funds on update. Only Docker is needed.
+Checks that [`entrypoint.sh`](../entrypoint.sh) renders `gnosisvpn-server`'s fixed address and
+the Blokli URL hoprd and the PIX pool share (the default, or `HOPRD_BLOKLI_URL`) without any
+network, ignores a config an older version rendered at the upload path, uses a real upload and
+warns when it doesn't forward to the fixed address, and `exec`s into hoprd. It also checks that
+the identity and PIX state paths, their volumes and the `HOPRD_PASSWORD` variable stay the
+same, since changing any of them loses existing installs' identity or PIX funds on update.
+Only Docker is needed.
 
 ## Checking the fixed address
 

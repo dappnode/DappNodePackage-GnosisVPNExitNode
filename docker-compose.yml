@@ -34,7 +34,7 @@ services:
       HOPRD_MODULE_ADDRESS: "0x0000000000000000000000000000000000000000"
       HOPRD_PASSWORD: ""
       HOPRD_API_TOKEN: ""
-      # Set this to override the value in hoprd.cfg.yaml.tpl
+      # Set this to override the package's default Blokli URL
       HOPRD_BLOKLI_URL: ""
       # Not exposed by `hoprd --help` in 4.0.3, but still read directly from the
       # environment rather than as a registered CLI flag.

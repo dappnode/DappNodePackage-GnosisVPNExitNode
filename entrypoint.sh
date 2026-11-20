@@ -13,6 +13,9 @@ PLACEHOLDER=__GNOSISVPN_SERVER_IP__
 # gnosisvpn-server/gvpn-fixed-address.sh.
 GNOSISVPN_SERVER_IP=172.33.255.254
 BLOKLI_PLACEHOLDER=__BLOKLI_URL__
+# What the template's placeholder becomes when neither the upload nor the setup wizard's
+# HOPRD_BLOKLI_URL sets a URL. hoprd requires a Blokli URL in the config either way.
+DEFAULT_BLOKLI_URL=https://blokli.piz-palu.gnosisvpn.io
 # The setup wizard's upload. Only read, never written: older versions rendered here, and the
 # next boot took that output for an upload.
 CUSTOM_CONFIG=/app/hoprd/conf/hoprd.custom.cfg.yaml
@@ -61,6 +64,17 @@ config_blokli_url() {
   done <<<"$1"
 }
 
+# A config with the line config_blokli_url reads set to blokli_url $2.
+with_config_blokli_url() {
+  local line eol=$'\n'
+  while IFS= read -r line || { eol=""; [ -n "${line}" ]; }; do
+    if [[ "${line}" =~ ^blokli_url:[[:space:]]*\"?([^\"#[:space:]]+) ]]; then
+      line="blokli_url: $2"
+    fi
+    printf '%s%s' "${line}" "${eol}"
+  done < <(printf '%s' "$1")
+}
+
 template_contents="$(read_config "${TEMPLATE_CONFIG}")"
 source_contents="${template_contents}"
 
@@ -91,12 +105,23 @@ fi
 # hoprd prefers HOPRD_BLOKLI_URL to the config's URL; the PIX pool only reads the config.
 # A URL set through ADDITIONAL_ENVIRONMENT_VARS or ADDITIONAL_CMDLINE_ARGS reaches only hoprd.
 blokli_url="${HOPRD_BLOKLI_URL:-$(config_blokli_url "${source_contents}")}"
+# The template, and uploads that leave it in place, ask for the default.
+if [ "${blokli_url}" = "${BLOKLI_PLACEHOLDER}" ]; then
+  blokli_url="${DEFAULT_BLOKLI_URL}"
+fi
 if [ -z "${blokli_url}" ] && [[ "$(config_body "${source_contents}")" == *"${BLOKLI_PLACEHOLDER}"* ]]; then
   echo "entrypoint.sh: no blokli_url for the PIX pool: write the top-level blokli_url as \"blokli_url: <url>\" on one line, or set HOPRD_BLOKLI_URL." >&2
   exit 1
 fi
 rendered="${source_contents//${PLACEHOLDER}/${GNOSISVPN_SERVER_IP}}"
-printf '%s' "${rendered//${BLOKLI_PLACEHOLDER}/"${blokli_url}"}" >"${GENERATED_CONFIG}"
+rendered="${rendered//${BLOKLI_PLACEHOLDER}/"${blokli_url}"}"
+# An upload can set its own top-level URL; when the setup wizard overrides it, write the URL
+# hoprd actually uses into the config too.
+if [ -n "${HOPRD_BLOKLI_URL:-}" ]; then
+  rendered="$(with_config_blokli_url "${rendered}" "${HOPRD_BLOKLI_URL}"; echo x)"
+  rendered="${rendered%x}"
+fi
+printf '%s' "${rendered}" >"${GENERATED_CONFIG}"
 export HOPRD_CONFIGURATION_FILE_PATH="${GENERATED_CONFIG}"
 
 # exec, so tini's SIGTERM reaches hoprd.

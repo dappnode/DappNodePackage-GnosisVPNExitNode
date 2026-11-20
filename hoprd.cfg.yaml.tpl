@@ -1,5 +1,7 @@
 ---
-blokli_url: https://blokli-piz-palu.dev.hoprnet.link
+# hoprd requires a Blokli URL even when HOPRD_BLOKLI_URL sets one. entrypoint.sh fills this in
+# and gives the PIX pool the same URL: the setup wizard's, the upload's, or the package default.
+blokli_url: __BLOKLI_URL__
 hopr:
   network:
     # Must fit twice in hoprd's 60s loopback window; the 1m default doesn't, and hoprd exits.

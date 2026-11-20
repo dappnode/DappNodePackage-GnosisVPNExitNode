@@ -13,8 +13,8 @@ HOPRD_IMAGE="europe-west3-docker.pkg.dev/hoprassociation/docker-images/hoprd:${H
 
 RENDERED_CONFIG="$(mktemp)"
 trap 'rm -f "${RENDERED_CONFIG}"' EXIT
-BLOKLI_URL="$(sed -n 's|^blokli_url: ||p' hoprd.cfg.yaml.tpl)"
-sed -e "s|__GNOSISVPN_SERVER_IP__|172.33.255.254|g" -e "s|__BLOKLI_URL__|${BLOKLI_URL}|g" \
+DEFAULT_BLOKLI_URL="$(sed -n 's|^DEFAULT_BLOKLI_URL=||p' entrypoint.sh)"
+sed -e "s|__GNOSISVPN_SERVER_IP__|172.33.255.254|g" -e "s|__BLOKLI_URL__|${DEFAULT_BLOKLI_URL}|g" \
   hoprd.cfg.yaml.tpl >"${RENDERED_CONFIG}"
 docker pull "${HOPRD_IMAGE}" >/dev/null
 docker run --rm \
