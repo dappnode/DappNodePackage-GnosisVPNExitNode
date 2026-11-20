@@ -4,8 +4,6 @@
 blokli_url: __BLOKLI_URL__
 hopr:
   network:
-    # Must fit twice in hoprd's 60s loopback window; the 1m default doesn't, and hoprd exits.
-    probe_interval: 30s
     pix:
       num_ssa_parts: 4096
       ssa_part_size: 32

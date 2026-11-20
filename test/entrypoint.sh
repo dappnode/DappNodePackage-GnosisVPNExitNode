@@ -136,8 +136,8 @@ fi
 
 echo
 echo "### leftover from an older release whose template had other settings"
-# Releases before the probe_interval setting rendered their template without it.
-sed -e '/^hopr:/,/probe_interval/d' -e "s|__GNOSISVPN_SERVER_IP__|${STALE_ADDRESS}|g" \
+# Releases before the PIX network settings rendered their template without them.
+sed -e '/^    pix:$/,/^      max_ssas_per_request:/d' -e "s|__GNOSISVPN_SERVER_IP__|${STALE_ADDRESS}|g" \
   hoprd.cfg.yaml.tpl | write_volume_file hoprd.custom.cfg.yaml
 out="$(run_entrypoint)"
 rendered="$(volume_file hoprd.generated.cfg.yaml)"
